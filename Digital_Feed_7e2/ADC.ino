@@ -11,6 +11,10 @@ void Read_ADC_Feed()
          ADC_Array[x] = New_ADC_Feed;
          Sum_ADC = Sum_ADC + New_ADC_Feed;
          ADC_Feed = Sum_ADC /16;
+
+         Serial.print(" ADC: ");
+         Serial.print(ADC_Feed);
+         Serial.print(" ");
       }
    }
 

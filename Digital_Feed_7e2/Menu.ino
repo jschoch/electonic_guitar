@@ -1,7 +1,12 @@
 void Menu()
 {
-   /////// Джойстик ///////////////////////////////////////////////
+   /////// Joystick ///////////////////////////////////////////////
    byte Joy_New = Joy_Read;
+   if(Joy_New != B00001111){
+    Serial.print("JN: ");
+    Serial.println(Joy_New, BIN);
+    }
+
    {
       if      (Joy_New == B00001110) Joy_LeftPressed();
       else if (Joy_New == B00001101) Joy_RightPressed();
@@ -11,12 +16,17 @@ void Menu()
    }
 
       
-   /////// Переключатель Режима ////////////////////////////////
+   /////// Mode Switch
    if (!Joy_Z_flag && !Joy_X_flag)
    {
       byte Mode_New = Mode_Read;
+      Serial.print(" ");
+      Serial.print(Mode_New,BIN);
+      Serial.print(" "); 
       if (Mode_New != Mode_Old)
       {
+        Serial.println(Mode_New);
+        Serial.println(": new mode");
          if      (Mode_New == B01111111) {Switch_Thread();}
          else if (Mode_New == B10111111) {Switch_Feed();}
          else if (Mode_New == B11011111) {Switch_aFeed();}
@@ -30,7 +40,7 @@ void Menu()
    }
 
 
-   /////// Переключатель Подрежима //////////////////////////////
+   /////// Sub-Mode Switch
    if (!Joy_Z_flag && !Joy_X_flag)
    {
       byte Submode_New = Submode_Read;
@@ -44,7 +54,8 @@ void Menu()
    }
 
     
-   /////////// Кнопки Меню //////////////////////////////////////   
+   /////////// Menu Buttons
+
    byte Button_Sel_New = Button_Sel_Read;
    if (Button_Sel_New == Button_Sel_Old)
    {
@@ -65,7 +76,7 @@ void Menu()
    Button_Old = Button_New;
 
 
-   /////// Кнопки Лимитов ///////////////////////////////////////
+   /////// limit switches 
    byte Limit_Button_New = Limit_Buttons_Read;
    if (Limit_Button_New == Limit_Button_Old)
    {
@@ -78,7 +89,8 @@ void Menu()
    Limit_Button_Old = Limit_Button_New;
 
 
-   /////// Переключатель Оси для ГРИ ////////////////////////////
+   /////// Axis switch for ??
+
    byte Hand_Axis_New = Hand_Axis_Read;
    if (Hand_Axis_New != Hand_Axis_Old)
    {
@@ -89,7 +101,7 @@ void Menu()
    }
 
 
-   /////// Переключатель Масштаба для ГРИ //////////////////////
+   /////// scale switch
    byte Hand_Scale_New = Hand_Scale_Read;
    if (Hand_Scale_New != Hand_Scale_Old)
    {
@@ -104,12 +116,18 @@ void Menu()
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ********** Обработка Джойстика ********** ///////////////////////////////////////////////////////////////////////////////
+// ********** Joystick processing
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ********** Обработчик Джойстик Влево **********
+
+// ********** Handler: Joystick Left
+// in thread mode this appears to activate the thread feed mode depending on the rotation of the spindle
+// in feed mode this just moves the position?
+
+
 void Joy_LeftPressed()
 {  
+  Serial.print(" # ");
    flag_j = ON;
    Disa_INT_Hcoder();
    Disable_INT_OCR3A();
@@ -125,6 +143,7 @@ void Joy_LeftPressed()
    ///////////////////////
    if (Mode == Mode_Thread)
    {
+      Serial.print("* ");
       if (Sub_Mode_Thread == Sub_Mode_Thread_Man && err_1_flag == false && err_2_flag == false)
       {
          if (Spindle_Dir == CW) {Thread_Left(c_flag, d_flag);}    
@@ -162,6 +181,7 @@ void Joy_LeftPressed()
          }
          else
          {
+            // rapid manual feed mode
             if (OCR5A == max_OCR5A)
             {
                rapid_Z_flag = OFF;
@@ -254,7 +274,7 @@ void Joy_LeftPressed()
 }  
 
 
-// ********** Обработчик Джойстик Вправо **********  
+// ********** handler: joystick right
 void Joy_RightPressed()
 {
    flag_j = ON;
@@ -701,7 +721,7 @@ void Joy_DownPressed()
 }
 
 
-// ********** Обработчик Джойстик в нейтрали **********  
+// ********** Joystick Neutral
 void Joy_NoPressed()
 {
    if (flag_j == ON)
@@ -840,6 +860,7 @@ void Switch_Thread()
    Ks_Count = 0;
    Km_Count = 0;
    Repeat_Count = 0;
+   Serial.print(" & ");
    Print();
 }
 

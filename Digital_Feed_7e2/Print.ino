@@ -3,11 +3,28 @@
 // ***** Print ***** /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+#include <neotimer.h>
+
+Neotimer pt = Neotimer(100);
+
 void Print()
 {
+  Serial.print("M");
+  Serial.print(Mode);
+  Serial.println(" ");
    if (Mode == Mode_Thread)  //////////////////////////////////////////////////////////
    {
       snprintf(LCD_Row_1, 17, "Thrd      %s", Thread_Info[Thread_Step].Thread_Print);
+      if(pt.repeat()){
+        Serial.print("Thrd  ");
+        Serial.print(Thread_Info[Thread_Step].Thread_Print);
+  
+        Serial.print(" Man Max:   ");
+        Serial.println(Thread_Info[Thread_Step].Limit_Print);
+      }
+
       
       if      (Sub_Mode_Thread == Sub_Mode_Thread_Int) snprintf(LCD_Row_2, 17, "Int  Max:%s", Thread_Info[Thread_Step].Limit_Print);
       else if (Sub_Mode_Thread == Sub_Mode_Thread_Man) snprintf(LCD_Row_2, 17, "Man  Max:%s", Thread_Info[Thread_Step].Limit_Print);
@@ -18,6 +35,7 @@ void Print()
    else if (Mode == Mode_Feed)  //////////////////////////////////////////////////////////
    {
       snprintf(LCD_Row_1, 17, "Feed mm/rev %1d.%02dmm", Feed_mm/100, Feed_mm%100);
+      
 
       if      (Sub_Mode_Feed == Sub_Mode_Feed_Int) snprintf(LCD_Row_2, 17, "Int  Pq:%1d Ap:%1d.%02d", Pass_Total-Pass_Nr+1, Ap/100, Ap%100);
       else if (Sub_Mode_Feed == Sub_Mode_Feed_Man) snprintf(LCD_Row_2, 17, "Man  Pq:%1d Ap:%1d.%02d", Pass_Total, Ap/100, Ap%100);
@@ -90,8 +108,16 @@ void Print()
    }
 
    // Печать ошибки
-   if      (err_1_flag == true) snprintf(LCD_Row_2, 17, "Limits not Set  ");
-   else if (err_2_flag == true) snprintf(LCD_Row_2, 17, "Move to Init Pos");   
+   if      (err_1_flag == true) {
+    snprintf(LCD_Row_2, 17, "Limits not Set  ");
+    Serial.println("limit error");
+    delay(500);
+   }
+   else if (err_2_flag == true) {
+    snprintf(LCD_Row_2, 17, "Move to Init Pos");   
+    Serial.println("move to init pos");
+    delay(500);
+   }
       
    lcd.setCursor(0, 0);
    lcd.print(LCD_Row_1);

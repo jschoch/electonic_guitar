@@ -2,59 +2,79 @@
 #include <util/delay.h>
 
 //////////////////////////////////
-// ***** ПАРАМЕТРЫ ЖЕЛЕЗА ***** //
+/*
 
-#define ENC_LINE_PER_REV     1800     // Кол-во линий энкодера на 1 оборот шпинделя
-#define MOTOR_Z_STEP_PER_REV 200      // Кол-во шагов на оборот винта Z, продольная
-#define SCREW_Z              150      // Шаг продольного винта Z в сотках, 1.5мм
-#define McSTEP_Z             4        // Микрошаг, ось Z, продольная
-#define MOTOR_X_STEP_PER_REV 200      // Кол-во шагов на оборот винта X, поперечная
-#define SCREW_X              100      // Шаг поперечного винта X в сотках, 1.0мм
-#define REBOUND_X            400      // Отскок резца в микрошагах, для авторезьбы, должен быть больше люфта поперечки
+----------
+          |
+          chuck
+          |
+          ---------------------------|
+                          work       |
+          ---------------------------|
+          |
+          |   X + |
+          |       V
+----------
+  Z + ->
+
+*/
+// ***** Iron Parameters ***** //
+
+#define ENC_LINE_PER_REV     600     // Number of encoder lines per 1 spindle revolution
+#define MOTOR_Z_STEP_PER_REV 200      // Steps per screw turn Z, longitudinal
+#define SCREW_Z              200      // Pitch of longitudinal screw Z in weave, 1.5mm
+#define McSTEP_Z             4        // microsetep, Z Axis, longitudinal
+#define MOTOR_X_STEP_PER_REV 200      // 
+#define SCREW_X              100      // Transverse screw spacing X in weave, 1.0mm
+#define REBOUND_X            400      // The bounce of the incisor in microsteps, for auto-cutting, there must be more backlash transverse
 #define REBOUND_Z            400      //
-#define McSTEP_X             4        // Микрошаг, ось X, поперечная
+#define McSTEP_X             4        // Microstep, X-axis, transverse
 //
-#define THRD_ACCEL           25       // К.деления с которого будем ускоряться на Резьбах, Accel+Ks должен быть < 255
-#define FEED_ACCEL           3        // Жесткость разгона на подачах, бОльше значение - короче разгон.
+#define THRD_ACCEL           25       // K. divisions from which we will accelerate on the threads, Accel + Ks must be <255
+#define FEED_ACCEL           3        // Rigidity of acceleration at feed rates, more importantly - shorter acceleration.
 //
-#define MIN_FEED             2        // Желаемая минимальная подача  в сотках/оборот, 0.02мм/об
-#define MAX_FEED             25       // Желаемая максимальная подача в сотках/оборот, 0.25мм/об
-#define MIN_aFEED            20       // Желаемая минимальная подача  в mm/минуту, 20мм/мин
-#define MAX_aFEED            400      // Желаемая максимальная подача в mm/минуту, 400мм/мин
+#define MIN_FEED             2        // Desired Minimum Flow in Weave / Rev, 0.02mm / Rev
+#define MAX_FEED             25       // Desired maximum feed in weave / turnover, 0.25mm / rev
+#define MIN_aFEED            20       // Desired Minimum Flow in mm / minute, 20mm / min
+#define MAX_aFEED            400      // Desired maximum flow in mm / minute, 400mm / min
 
-// Ускоренные перемещения                              
-#define MAX_RAPID_MOTION     25                       // Меньше - бОльшая конечная скорость           //16000000/32/((25+1)*2)/800*60=721rpm
-#define MIN_RAPID_MOTION    (MAX_RAPID_MOTION + 150)  // Больше - мЕньшая начальная скорость, max 255 //16000000/32/((150+25+1)*2)/800*60=107rpm
-#define REPEAt              (McSTEP_Z * 1)            // Кол-во повторов для постоянной скорости в пределах полного шага    
+// Accelerated Moves
+#define MAX_RAPID_MOTION     25                       // Less is greater final speed           //16000000/32/((25+1)*2)/800*60=721rpm
+#define MIN_RAPID_MOTION    (MAX_RAPID_MOTION + 150)  // More - lower initial speed, max 255 //16000000/32/((150+25+1)*2)/800*60=107rpm
+#define REPEAt              (McSTEP_Z * 1)            // Number of repetitions for a constant speed within a full step 
+    // Acceleration time = 150/2 * REPEAT (4) / Microstep (4) = 75 full steps acceleration cycle
                                                       // Длительность разгона = 150/2*REPEAT(4)/Microstep(4) = 75 полных шагов цикл ускорения
-// Ручной энкодер (100 линий)
-#define HC_SCALE_1           1        // 1-e положение, масштаб = 1сотка/тик = 1мм/оборот
-#define HC_SCALE_10          10       // 2-e положение, масштаб = 10соток/тик = 10мм/оборот
-#define HC_START_SPEED_1     250      // старт РГИ, 250000/(250+1)/800*60/2 = 37rpm
-#define HC_MAX_SPEED_1       150      // максимум скорости РГИ, 250000/(150+1)/800*60/2 = 62rpm
-#define HC_START_SPEED_10    150      // старт РГИ, 250000/(150+1)/800*60/2 = 62rpm
-#define HC_MAX_SPEED_10      23       // максимум скорости РГИ, 250000/(23+1)/800*60/2 = 391rpm
-#define HC_X_DIR             1        // 1-поперечка по часовой, 0-против
+
+// Hand Encoder (100 lines)
+// this is the encoder on the hand wheel?
+
+#define HC_SCALE_1           1        // 1st position, scale = 1slot / tick = 1mm / turn
+#define HC_SCALE_10          10       // 2nd position, scale = 10stock / tick = 10mm / revolution
+#define HC_START_SPEED_1     250      // start of RGI, 250000 / (250 + 1) / 800 * 60/2 = 37rpm
+#define HC_MAX_SPEED_1       150      // maximum speed of RGI, 250000 / (150 + 1) / 800 * 60/2 = 62rpm
+#define HC_START_SPEED_10    150      // start of RGI, 250000 / (150 + 1) / 800 * 60/2 = 62rpm
+#define HC_MAX_SPEED_10      23       // maximum speed of the RIG, 250000 / (23 + 1) / 800 * 60/2 = 391rpm
+#define HC_X_DIR             1        // 1 clockwise, 0-against
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 #define a  (uint32_t)(ENC_LINE_PER_REV / ((float)MOTOR_Z_STEP_PER_REV * McSTEP_Z * MIN_FEED / SCREW_Z) /2 +0.5)
-static_assert(a <= 255, "Неверно задано значение MIN_FEED");
+static_assert(a <= 255, "Invalid Value MIN_FEED");
 #define b  (uint32_t)(ENC_LINE_PER_REV / ((float)MOTOR_Z_STEP_PER_REV * McSTEP_Z * MAX_FEED / SCREW_Z) /2 +0.5)
-static_assert(b > 1, "Неверно задано значение MAX_FEED");
+static_assert(b > 1, "Invalid Value MAX_FEED");
 #define c  250000 / ((uint32_t)MIN_aFEED * MOTOR_Z_STEP_PER_REV * McSTEP_Z / ((uint32_t)60 * SCREW_Z / 100) * 2) -1
-static_assert(c <= 65535, "Неверно задано значение MIN_aFEED");
+static_assert(c <= 65535, "Invalid Value MIN_aFEED");
 #define d  250000 / ((uint32_t)MAX_aFEED * MOTOR_Z_STEP_PER_REV * McSTEP_Z / ((uint32_t)60 * SCREW_Z / 100) * 2) -1
-static_assert(d > 1, "Неверно задано значение MAX_aFEED");
+static_assert(d > 1, "Invalid Value MAX_aFEED");
 
 #define e  (uint32_t)(ENC_LINE_PER_REV / ((float)MOTOR_X_STEP_PER_REV * McSTEP_X * MIN_FEED / SCREW_X) /2 +0.5)
-static_assert(e <= 255, "Неверно задано значение MIN_FEED");
+static_assert(e <= 255, "Invalid Value MIN_FEED");
 #define f  (uint32_t)(ENC_LINE_PER_REV / ((float)MOTOR_X_STEP_PER_REV * McSTEP_X * MAX_FEED / SCREW_X) /2 +0.5)
-static_assert(f > 1, "Неверно задано значение MAX_FEED");
+static_assert(f > 1, "Invalid Value MAX_FEED");
 #define g  250000 / ((uint32_t)MIN_aFEED * MOTOR_X_STEP_PER_REV * McSTEP_X / ((uint32_t)60 * SCREW_X / 100) * 2) -1
-static_assert(g <= 65535, "Неверно задано значение MIN_aFEED");
+static_assert(g <= 65535, "Invalid Value MIN_aFEED");
 #define h  250000 / ((uint32_t)MAX_aFEED * MOTOR_X_STEP_PER_REV * McSTEP_X / ((uint32_t)60 * SCREW_X / 100) * 2) -1
-static_assert(h > 1, "Неверно задано значение MAX_aFEED");
+static_assert(h > 1, "Invalid Value MAX_aFEED");
 //////////////////////////////////////////////////////////
 
 
@@ -113,16 +133,16 @@ char LCD_Row_2[17];
 
 
 // ***** Encoder *****
-#define ENC_TICK              (ENC_LINE_PER_REV * 2)    // Рабочее кол-во импульсов
+#define ENC_TICK              (ENC_LINE_PER_REV * 2)    // Working Pulse Count 
 #define Encoder_Init()         DDRD = B00000000;\
-                               PORTD = B11111111        // подтяжка PIN_21, 20, 19, 18
+                               PORTD = B11111111        // pull-up PIN_21, 20, 19, 18
 #define Enc_Read              (PIND & (1<<1))
 #define Enc_Ch_A              (PIND & (1<<0))
 #define Enc_Ch_B              (PIND & (1<<1))
  
 
 
-// ***** Hand_Coder *****            // Z/X: Input-E4,E5, подтяжка-E4,E5, X1/X10: Input-J0,J1, подтяжка-J0,J1.
+// ***** Hand_Coder *****            // Z/X: Input-E4,E5, lift-E4, E5, X1 / X10: Input-J0, J1, pull-up-J0, J1.
 #define Hand_Init()            DDRE = B00000000;\
                                PORTE = B11111111;\
                                DDRJ = B00000000;\
@@ -171,7 +191,7 @@ bool key_sel_flag = false;
 
 //////////////////
 #define Joy_Init()             DDRK = B00000000;\
-                               PORTK = B11111111;    // подтяжка PIN_A8, A9, A10, A11, A12 // Submode Sw: A13, A14, A15
+                               PORTK = B11111111;    // PORT_A brace, MANDATORY! external pull up to +5 through 1K resistors
 
 #define Joy_Read              (PINK & B00001111)     // PK0 PK1 PK2 PK3
 #define Button_Rapid          (PINK & B00010000)     // PK4
@@ -302,9 +322,9 @@ struct thread_info_type
   char Limit_Print[8];
 };
 const thread_info_type Thread_Info[] =
-{                                                              // Считаем по формуле:
+{                                                              // We count the following formula:
    { 27,    0,   18,    0,   "0.25mm", 0.250,  4, " 750rpm" }, // Enc_Tick(3600)/(Step_Per_Revolution/Feed_Screw*Thread_mm)
-   { 22, 5000,   15,    0,   "0.30mm", 0.300,  4, " 750rpm" }, // Просчитан под 800 микрошагов/оборот винта (1/4 дробление, 1.5мм и 1.0мм шаг винтов)
+   { 22, 5000,   15,    0,   "0.30mm", 0.300,  4, " 750rpm" }, // Calculated for 800 micro steps / screw rotation (1/4 crushing, 1.5 mm and 1.0 mm pitch of screws)
    { 19, 2857,   12, 8571,   "0.35mm", 0.350,  4, " 750rpm" },
    { 16, 8750,   11, 2500,   "0.40mm", 0.400,  4, " 750rpm" },
    { 13, 5000,    9,    0,   "0.50mm", 0.500,  4, " 750rpm" },
@@ -352,7 +372,7 @@ const thread_info_type Thread_Info[] =
 #define PASS_FINISH   3 // THRD_PS_FN ???
 
 #define Thrd_Accel_Err Thread_Info[0].Ks_Div_Z                 // неверно задано ускорение
-//static_assert(Thrd_Accel_Err + THRD_ACCEL <= 255, "Неверно задано значение THRD_ACCEL");
+//static_assert(Thrd_Accel_Err + THRD_ACCEL <= 255, "Invalid Value THRD_ACCEL");
 
 
 // ***** Interrupts *****
@@ -485,12 +505,19 @@ bool limit_Rear_flag = OFF;
 bool limit_button_flag = OFF;
 bool button_flag = OFF;
 
+
+/// need better understanding of these flags
+
+// a and b flags appear to be for feeding
 bool a_flag = false;
 bool b_flag = false;
+
+// c and d flags seem to be used for threading.  thread functions do not run if c_flag is true
 bool c_flag = false;
 bool d_flag = false;
 bool cycle_flag = false;
 
+// these are the main error condition flags
 bool err_1_flag = false;
 bool err_2_flag = false;
 
@@ -503,6 +530,8 @@ bool Z_flag = OFF;                    // временный
 bool flag_Scale_x1 = OFF;             // возможно только для отладки
 bool flag_Scale_x10 = OFF;            // возможно только для отладки
 bool control_flag = OFF;
+
+// seems to say "joystick is pressed, and turned off when returned to "nopressed"
 bool flag_j = OFF;
 
 // ***** MY VARIABLES *****
@@ -537,7 +566,8 @@ byte Repeat_Count = 0;
 
 int Brake_Compens = 0;
 
-byte Mode = Mode_Feed;
+// TODO:  default was Mode_Feed
+byte Mode = Mode_Thread;
 byte Sub_Mode_Thread = Sub_Mode_Thread_Man;
 byte Sub_Mode_Feed = Sub_Mode_Feed_Man;
 byte Sub_Mode_aFeed = Sub_Mode_aFeed_Man;
@@ -610,6 +640,7 @@ void setup()
   lcd.begin(16, 2);
   lcd.setCursor(0, 0);
   lcd.print("   ELS v.7e2    ");
+  Serial.begin(115200);
   _delay_ms(1000);
   
   DDRG = B11111111;
@@ -671,6 +702,7 @@ void setup()
 
   Motor_Z_RemovePulse();
   Motor_X_RemovePulse();
+  Serial.println("setup done");
 }
 
 
@@ -678,12 +710,16 @@ void setup()
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void loop()
 {
-  Spindle();
+  // TODO:  turn spindle on  here for reverse engineering
+  spindle_flag = ON;
+  //Spindle();
   Read_ADC_Feed();
   if (KEYB_TIMER_FLAG != 0) Menu();
   
-  if (Mode == Mode_Divider) Print(); // пока для теста !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-//  Print();                         // тоько для теста !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  if (Mode == Mode_Divider) Print(); // just for dough !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+//  Print();    // тоько для теста !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  
 
 }
 
