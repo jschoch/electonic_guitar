@@ -107,10 +107,10 @@ void Print()
       snprintf(LCD_Row_2, 17, "Rea:%3ld.%02ld a:%3d", Spindle_Angle/100, Spindle_Angle%100, Current_Tooth);
    }
 
-   // Печать ошибки
+   // Error
    if      (err_1_flag == true) {
     snprintf(LCD_Row_2, 17, "Limits not Set  ");
-    Serial.println("limit error");
+    Serial.println("limit not set error");
     delay(500);
    }
    else if (err_2_flag == true) {

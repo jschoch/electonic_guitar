@@ -1,7 +1,9 @@
 #include <avr/pgmspace.h>
 #include <util/delay.h>
+#include <neotimer.h>
 
-//////////////////////////////////
+
+
 /*
 
 ----------
@@ -18,12 +20,14 @@
   Z + ->
 
 */
+
+
 // ***** Iron Parameters ***** //
 
 #define ENC_LINE_PER_REV     600     // Number of encoder lines per 1 spindle revolution
 #define MOTOR_Z_STEP_PER_REV 200      // Steps per screw turn Z, longitudinal
 #define SCREW_Z              200      // Pitch of longitudinal screw Z in weave, 1.5mm
-#define McSTEP_Z             4        // microsetep, Z Axis, longitudinal
+#define McSTEP_Z              4      // microsetep, Z Axis, longitudinal
 #define MOTOR_X_STEP_PER_REV 200      // 
 #define SCREW_X              100      // Transverse screw spacing X in weave, 1.0mm
 #define REBOUND_X            400      // The bounce of the incisor in microsteps, for auto-cutting, there must be more backlash transverse
@@ -33,7 +37,10 @@
 #define THRD_ACCEL           25       // K. divisions from which we will accelerate on the threads, Accel + Ks must be <255
 #define FEED_ACCEL           3        // Rigidity of acceleration at feed rates, more importantly - shorter acceleration.
 //
-#define MIN_FEED             2        // Desired Minimum Flow in Weave / Rev, 0.02mm / Rev
+
+// TODO: this should be driven by the encoder resolution...
+#define MIN_FEED             3        // Desired Minimum Flow in Weave / Rev, 0.02mm / Rev
+
 #define MAX_FEED             25       // Desired maximum feed in weave / turnover, 0.25mm / rev
 #define MIN_aFEED            20       // Desired Minimum Flow in mm / minute, 20mm / min
 #define MAX_aFEED            400      // Desired maximum flow in mm / minute, 400mm / min
@@ -76,6 +83,8 @@ static_assert(g <= 65535, "Invalid Value MIN_aFEED");
 #define h  250000 / ((uint32_t)MAX_aFEED * MOTOR_X_STEP_PER_REV * McSTEP_X / ((uint32_t)60 * SCREW_X / 100) * 2) -1
 static_assert(h > 1, "Invalid Value MAX_aFEED");
 //////////////////////////////////////////////////////////
+
+Neotimer mt = Neotimer(50);
 
 
 // ***** MY CONSTANT *****
