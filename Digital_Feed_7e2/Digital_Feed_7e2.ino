@@ -48,9 +48,12 @@
 // Accelerated Moves
 #define MAX_RAPID_MOTION     25                       // Less is greater final speed           //16000000/32/((25+1)*2)/800*60=721rpm
 #define MIN_RAPID_MOTION    (MAX_RAPID_MOTION + 150)  // More - lower initial speed, max 255 //16000000/32/((150+25+1)*2)/800*60=107rpm
-#define REPEAt              (McSTEP_Z * 1)            // Number of repetitions for a constant speed within a full step 
+
+#define REPEAt              (McSTEP_Z * 1)            
+
+    // Number of repetitions for a constant speed within a full step 
     // Acceleration time = 150/2 * REPEAT (4) / Microstep (4) = 75 full steps acceleration cycle
-                                                      // Длительность разгона = 150/2*REPEAT(4)/Microstep(4) = 75 полных шагов цикл ускорения
+    // Acceleration duration = 150/2*REPEAT(4)/Microstep(4) = 75 полных шагов цикл ускорения
 
 // Hand Encoder (100 lines)
 // this is the encoder on the hand wheel?
@@ -330,51 +333,19 @@ struct thread_info_type
   byte Pass;
   char Limit_Print[8];
 };
+
+//   Z "whole"  |  Z "fraction" | X "whole" |  X "fraction" | string for display e.g "0.25mm" | decimal in mm e.g 0.250 | number of passes | string for display "750rpm"
 const thread_info_type Thread_Info[] =
 {                                                              // We count the following formula:
-   { 27,    0,   18,    0,   "0.25mm", 0.250,  4, " 750rpm" }, // Enc_Tick(3600)/(Step_Per_Revolution/Feed_Screw*Thread_mm)
-   { 22, 5000,   15,    0,   "0.30mm", 0.300,  4, " 750rpm" }, // Calculated for 800 micro steps / screw rotation (1/4 crushing, 1.5 mm and 1.0 mm pitch of screws)
-   { 19, 2857,   12, 8571,   "0.35mm", 0.350,  4, " 750rpm" },
-   { 16, 8750,   11, 2500,   "0.40mm", 0.400,  4, " 750rpm" },
-   { 13, 5000,    9,    0,   "0.50mm", 0.500,  4, " 750rpm" },
-   { 11, 2500,    7, 5000,   "0.60mm", 0.600,  4, " 750rpm" },
-   {  9, 6429,    6, 4286,   "0.70mm", 0.700,  4, " 750rpm" },
-   {  9,    0,    6,    0,   "0.75mm", 0.750,  5, " 750rpm" },
-   {  8, 4375,    5, 6250,   "0.80mm", 0.800,  5, " 700rpm" },
-   {  6, 7500,    4, 5000,   "1.00mm", 1.000,  6, " 560rpm" },
-   {  5, 4000,    3, 6000,   "1.25mm", 1.250,  7, " 460rpm" },
-   {  4, 5000,    3,    0,   "1.50mm", 1.500,  7, " 380rpm" },
-   {  3, 8571,    2, 5714,   "1.75mm", 1.750,  8, " 320rpm" },
-   {  3, 3750,    2, 2500,   "2.00mm", 2.000,  9, " 280rpm" },
-   {  2, 7000,    1, 8000,   "2.50mm", 2.500, 11, " 220rpm" },
-   {  2, 2500,    1, 5000,   "3.00mm", 3.000, 15, " 190rpm" },
-   {  1, 6875,    1, 1250,   "4.00mm", 4.000, 22, " 140rpm" },
-   
-   { 21, 2598,   14, 1732,   "80tpi ", 0.318,  4, " 750rpm" },
-   { 19, 1339,   12, 7559,   "72tpi ", 0.353,  4, " 750rpm" },
-   { 17,   79,   11, 3386,   "64tpi ", 0.397,  4, " 750rpm" },
-   { 15, 9449,   10, 6299,   "60tpi ", 0.423,  4, " 750rpm" },
-   { 14, 8819,    9, 9213,   "56tpi ", 0.454,  4, " 750rpm" },
-   { 12, 7559,    8, 5039,   "48tpi ", 0.529,  4, " 750rpm" },
-   { 11, 6929,    7, 7953,   "44tpi ", 0.577,  4, " 750rpm" },
-   { 10, 6299,    7,  866,   "40tpi ", 0.635,  4, " 750rpm" },
-   {  9, 5669,    6, 3780,   "36tpi ", 0.706,  5, " 750rpm" },
-   {  8, 5039,    5, 6693,   "32tpi ", 0.794,  5, " 710rpm" },
-   {  7, 4409,    4, 9606,   "28tpi ", 0.907,  5, " 650rpm" },
-   {  7, 1752,    4, 7835,   "27tpi ", 0.941,  5, " 600rpm" },
-   {  6, 9095,    4, 6063,   "26tpi ", 0.977,  6, " 570rpm" },
-   {  6, 3780,    4, 2520,   "24tpi ", 1.058,  6, " 500rpm" },
-   {  5, 8465,    3, 8976,   "22tpi ", 1.155,  6, " 450rpm" },
-   {  5, 3150,    3, 5433,   "20tpi ", 1.270,  7, " 440rpm" },
-   {  5,  492,    3, 3661,   "19tpi ", 1.337,  7, " 420rpm" },
-   {  4, 7835,    3, 1890,   "18tpi ", 1.411,  7, " 380rpm" },
-   {  4, 2520,    2, 8346,   "16tpi ", 1.588,  8, " 350rpm" },
-   {  3, 7205,    2, 4803,   "14tpi ", 1.814,  9, " 320rpm" },
-   {  3, 1890,    2, 1260,   "12tpi ", 2.117, 10, " 270rpm" },
-   {  2, 6575,    1, 7717,   "10tpi ", 2.540, 11, " 220rpm" },
-   {  2, 3917,    1, 5945,   " 9tpi ", 2.822, 14, " 190rpm" },
-   {  2, 1260,    1, 4173,   " 8tpi ", 3.175, 16, " 170rpm" },
-   {  1, 8602,    1, 2402,   " 7tpi ", 3.629, 19, " 150rpm" },
+    { 7,    5,   18,    0,   "0.2mm", 0.20,  4, " 750rpm" },
+   { 6,    0,   18,    0,   "0.25mm", 0.250,  4, " 750rpm" }, // Enc_Tick(3600)/(Step_Per_Revolution/Feed_Screw*Thread_mm)
+    // Calculated for 800 micro steps / screw rotation (1/4 crushing, 1.5 mm and 1.0 mm pitch of screws)
+
+   { 5, 0,   12, 8571,   "0.35mm", 0.350,  4, " 750rpm" },
+   { 4, 2858,   11, 2500,   "0.40mm", 0.400,  4, " 750rpm" },
+   { 3, 75,    9,    0,   "0.50mm", 0.500,  4, " 750rpm" },
+   { 3, 0,    7, 5000,   "0.60mm", 0.600,  4, " 750rpm" },
+
    {  1, 5945,    1,  630,   " 6tpi ", 4.233, 24, " 140rpm" }
 };
 #define TOTAL_THREADS (sizeof(Thread_Info) / sizeof(Thread_Info[0]))

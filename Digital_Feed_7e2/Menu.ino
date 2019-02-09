@@ -4,7 +4,8 @@ void Menu()
    byte Joy_New = Joy_Read;
    if(Joy_New != B00001111){
     Serial.print("JN: ");
-    Serial.println(Joy_New, BIN);
+    Serial.print(Joy_New, BIN);
+  
     }
 
    {
@@ -78,11 +79,13 @@ void Menu()
 
    /////// limit switches 
    byte Limit_Button_New = Limit_Buttons_Read;
-   Serial.print("LB: ");
+   Serial.print(digitalRead(28));
+   Serial.print(" LB: ");
    Serial.println(Limit_Button_New, BIN);
    if (Limit_Button_New != Limit_Button_Old)
    {
-      //Serial.println(Limit_Button_New, BIN);
+      Serial.println(Limit_Button_New, BIN);
+      delay(1000);
       if      (Limit_Button_New == B00010101) Limit_Left_Pressed();
       else if (Limit_Button_New == B01000101) Limit_Right_Pressed();
       else if (Limit_Button_New == B01010001) Limit_Front_Pressed();
@@ -1606,6 +1609,7 @@ void Key_Right_Pressed()
 // ********** Button click handler
 void Limit_Left_Pressed()
 {
+  Serial.println("L Press");
    if (!limit_button_flag)
    {
       limit_button_flag = true;

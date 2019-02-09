@@ -17,13 +17,22 @@ void Print()
    if (Mode == Mode_Thread)  //////////////////////////////////////////////////////////
    {
       snprintf(LCD_Row_1, 17, "Thrd      %s", Thread_Info[Thread_Step].Thread_Print);
-      if(pt.repeat()){
+      //if(pt.repeat()){
         Serial.print("Thrd  ");
         Serial.print(Thread_Info[Thread_Step].Thread_Print);
   
         Serial.print(" Man Max:   ");
         Serial.println(Thread_Info[Thread_Step].Limit_Print);
-      }
+        Serial.print("LL:");
+        Serial.print(Limit_Pos_Left);
+        Serial.print(",LR:");
+        Serial.print(Limit_Pos_Right);
+        Serial.print(" ");
+        Serial.print(Motor_Z_Pos);
+        Serial.print(",");
+        Serial.print(Enc_Pos);
+        Serial.print("\n");
+      //}
 
       
       if      (Sub_Mode_Thread == Sub_Mode_Thread_Int) snprintf(LCD_Row_2, 17, "Int  Max:%s", Thread_Info[Thread_Step].Limit_Print);
