@@ -6,18 +6,62 @@
 
 
 #include <neotimer.h>
+extern Adafruit_SSD1306 display;
 
 Neotimer pt = Neotimer(100);
 
-void Print()
-{
+void display_mode(){
+  display.clearDisplay();
+  display.setTextSize(0);
+  display.setTextColor(WHITE);
+  display.setCursor(0,0);
+  display.print("M:");
+  display.print(ModeS[Mode]);
+  display.print(" ");
+}
+
+void print_thread(){
+  display.print(Enc_Pos);
+  if      (Sub_Mode_Thread == Sub_Mode_Thread_Int) {
+    //display.setCursor(0,20);
+    display.print(" Int ");
+    //snprintf(LCD_Row_2, 17, "Int  Max:%s", Thread_Info[Thread_Step].Limit_Print);
+  }
+  else if (Sub_Mode_Thread == Sub_Mode_Thread_Man) {
+    //display.setCursor(8,0);
+    display.print(Thread_Info[Thread_Step].Thread_Print);
+    display.print(" ");
+    display.print(Thread_Info[Thread_Step].Limit_Print);
+    //snprintf(LCD_Row_2, 17, "Man  Max:%s", Thread_Info[Thread_Step].Limit_Print);
+  }
+  else if (Sub_Mode_Thread == Sub_Mode_Thread_Ext) {
+    //display.setCursor(0,20);
+    display.print(" Ext ");
+    //snprintf(LCD_Row_2, 17, "Ext  Max:%s", Thread_Info[Thread_Step].Limit_Print);
+  }
+  display_limits(); 
+  display_motors();
+};
+
+void display_limits(){
+  if(Limit_Pos_Left != Limit_Pos_Max ){
+    display.print(" LL ");
+  }
+  if(Limit_Pos_Right != Limit_Pos_Min ){
+    display.print(" LR ");
+  } 
+  
+}
+
+void display_motors(){
+  display.print(" MPZ:");
+  display.print(Motor_Z_Pos);
+}
+
+void ser_print(){
   Serial.print("M");
   Serial.print(Mode);
   Serial.println(" ");
-   if (Mode == Mode_Thread)  //////////////////////////////////////////////////////////
-   {
-      snprintf(LCD_Row_1, 17, "Thrd      %s", Thread_Info[Thread_Step].Thread_Print);
-      //if(pt.repeat()){
         Serial.print("Thrd  ");
         Serial.print(Thread_Info[Thread_Step].Thread_Print);
   
@@ -32,12 +76,16 @@ void Print()
         Serial.print(",");
         Serial.print(Enc_Pos);
         Serial.print("\n");
-      //}
+ 
+}
 
-      
-      if      (Sub_Mode_Thread == Sub_Mode_Thread_Int) snprintf(LCD_Row_2, 17, "Int  Max:%s", Thread_Info[Thread_Step].Limit_Print);
-      else if (Sub_Mode_Thread == Sub_Mode_Thread_Man) snprintf(LCD_Row_2, 17, "Man  Max:%s", Thread_Info[Thread_Step].Limit_Print);
-      else if (Sub_Mode_Thread == Sub_Mode_Thread_Ext) snprintf(LCD_Row_2, 17, "Ext  Max:%s", Thread_Info[Thread_Step].Limit_Print);
+void Print()
+{
+  display_mode();
+   if (Mode == Mode_Thread)  //////////////////////////////////////////////////////////
+   {
+      //snprintf(LCD_Row_1, 17, "Thrd      %s", Thread_Info[Thread_Step].Thread_Print);
+      print_thread(); 
    } 
 
   
@@ -45,10 +93,11 @@ void Print()
    {
       snprintf(LCD_Row_1, 17, "Feed mm/rev %1d.%02dmm", Feed_mm/100, Feed_mm%100);
       
-
+      /*
       if      (Sub_Mode_Feed == Sub_Mode_Feed_Int) snprintf(LCD_Row_2, 17, "Int  Pq:%1d Ap:%1d.%02d", Pass_Total-Pass_Nr+1, Ap/100, Ap%100);
       else if (Sub_Mode_Feed == Sub_Mode_Feed_Man) snprintf(LCD_Row_2, 17, "Man  Pq:%1d Ap:%1d.%02d", Pass_Total, Ap/100, Ap%100);
       else if (Sub_Mode_Feed == Sub_Mode_Feed_Ext) snprintf(LCD_Row_2, 17, "Ext  Pq:%1d Ap:%1d.%02d", Pass_Total-Pass_Nr+1, Ap/100, Ap%100);
+      */
    }
 
 
@@ -118,21 +167,17 @@ void Print()
 
    // Error
    if      (err_1_flag == true) {
-    snprintf(LCD_Row_2, 17, "Limits not Set  ");
-    Serial.println("limit not set error");
+    //snprintf(LCD_Row_2, 17, "Limits not Set  ");
+    //Serial.println("limit not set error");
+    display.print("limit not set error");
     delay(500);
    }
    else if (err_2_flag == true) {
-    snprintf(LCD_Row_2, 17, "Move to Init Pos");   
-    Serial.println("move to init pos");
+    //snprintf(LCD_Row_2, 17, "Move to Init Pos");   
+    //Serial.println("move to init pos");
+    display.print("move to init pos");
     delay(500);
    }
       
-   lcd.setCursor(0, 0);
-   lcd.print(LCD_Row_1);
-   lcd.print("   ");
-
-   lcd.setCursor(0, 1);
-   lcd.print(LCD_Row_2);
-   lcd.print("   ");
+   display.display();
 }

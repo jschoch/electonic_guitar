@@ -2,11 +2,14 @@ void Menu()
 {
    /////// Joystick ///////////////////////////////////////////////
    byte Joy_New = Joy_Read;
+  
+   /*
    if(Joy_New != B00001111){
     Serial.print("JN: ");
     Serial.print(Joy_New, BIN);
   
     }
+   */
 
    {
       if      (Joy_New == B00001110) Joy_LeftPressed();
@@ -21,13 +24,19 @@ void Menu()
    if (!Joy_Z_flag && !Joy_X_flag)
    {
       byte Mode_New = Mode_Read;
+    
+      /*
       Serial.print(" ");
       Serial.print(Mode_New,BIN);
       Serial.print(" "); 
+      */
+
       if (Mode_New != Mode_Old)
       {
+        /*
         Serial.println(Mode_New);
         Serial.println(": new mode");
+        */
          if      (Mode_New == B01111111) {Switch_Thread();}
          else if (Mode_New == B10111111) {Switch_Feed();}
          else if (Mode_New == B11011111) {Switch_aFeed();}
@@ -79,13 +88,17 @@ void Menu()
 
    /////// limit switches 
    byte Limit_Button_New = Limit_Buttons_Read;
+
+   /*
    Serial.print(digitalRead(28));
    Serial.print(" LB: ");
    Serial.println(Limit_Button_New, BIN);
+   */
+
    if (Limit_Button_New != Limit_Button_Old)
    {
       Serial.println(Limit_Button_New, BIN);
-      delay(1000);
+      delay(100);
       if      (Limit_Button_New == B00010101) Limit_Left_Pressed();
       else if (Limit_Button_New == B01000101) Limit_Right_Pressed();
       else if (Limit_Button_New == B01010001) Limit_Front_Pressed();
@@ -133,7 +146,7 @@ void Menu()
 
 void Joy_LeftPressed()
 {  
-  Serial.print(" # ");
+  //Serial.print(" # ");
    flag_j = ON;
    Disa_INT_Hcoder();
    Disable_INT_OCR3A();
@@ -149,7 +162,7 @@ void Joy_LeftPressed()
    ///////////////////////
    if (Mode == Mode_Thread)
    {
-      Serial.print("* ");
+      //Serial.print("* ");
       if (Sub_Mode_Thread == Sub_Mode_Thread_Man && err_1_flag == false && err_2_flag == false)
       {
          if (Spindle_Dir == CW) {Thread_Left(c_flag, d_flag);}    
@@ -866,7 +879,7 @@ void Switch_Thread()
    Ks_Count = 0;
    Km_Count = 0;
    Repeat_Count = 0;
-   Serial.print(" & ");
+   //Serial.print(" & ");
    Print();
 }
 
@@ -1609,7 +1622,7 @@ void Key_Right_Pressed()
 // ********** Button click handler
 void Limit_Left_Pressed()
 {
-  Serial.println("L Press");
+  //Serial.println("L Press");
    if (!limit_button_flag)
    {
       limit_button_flag = true;

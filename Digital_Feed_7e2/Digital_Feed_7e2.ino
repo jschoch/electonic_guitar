@@ -1,7 +1,24 @@
+
+// maybe try encoder and encoder.read() in timer
+//#define ENCODER_OPTIMIZE_INTERRUPTS
+//#include <Encoder.h>
+//
+//Encoder myEnc(2,3);
+
 #include <avr/pgmspace.h>
 #include <util/delay.h>
 #include <neotimer.h>
 
+#include <SPI.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
+Adafruit_SSD1306 display(52);
+
+#if (SSD1306_LCDHEIGHT != 32)
+#error("Height incorrect, please fix Adafruit_SSD1306.h!");
+#endif
 
 
 /*
@@ -144,14 +161,6 @@ char LCD_Row_2[17];
 #define TachoRemovePulse()     PORTL &= ~(1<<7)     // Pin42 0
 
 
-// ***** Encoder *****
-#define ENC_TICK              (ENC_LINE_PER_REV * 2)    // Working Pulse Count 
-#define Encoder_Init()         DDRD = B00000000;\
-                               PORTD = B11111111        // pull-up PIN_21, 20, 19, 18
-#define Enc_Read              (PIND & (1<<1))
-#define Enc_Ch_A              (PIND & (1<<0))
-#define Enc_Ch_B              (PIND & (1<<1))
- 
 
 
 // ***** Hand_Coder *****            // Z/X: Input-E4,E5, lift-E4, E5, X1 / X10: Input-J0, J1, pull-up-J0, J1.
@@ -163,11 +172,54 @@ char LCD_Row_2[17];
 #define Hand_Ch_A             (PIND & (1<<2))
 #define Hand_Ch_B             (PIND & (1<<3))
 
-#define Hand_Axis_Read        (PINE & B00110000)       // E4,E5
+#define Hand_Axis_Read        (PINB & B00110000)       // moved to 50,51 or PB3, PB2
 byte Hand_Axis_Old = 0;
 
 #define Hand_Scale_Read        (PINJ & B00000011)      // J0,J1
 byte Hand_Scale_Old = 0;
+
+
+#define ENC_TICK              (ENC_LINE_PER_REV * 2)    // Working Pulse Count
+#define Encoder_Init()         DDRE = B00000000;\
+                               PORTE = B11111111        // pull-up PIN_21, 20, 19, 18
+
+#define Enc_Ch_A              (PINE & (1<<4))
+#define Enc_Ch_B              (PINE & (1<<5))
+
+/* TODO: depricated
+// ***** Encoder *****
+#define ENC_TICK              (ENC_LINE_PER_REV * 2)    // Working Pulse Count 
+#define Encoder_Init()         DDRD = B00000000;\
+                               PORTD = B11111111        // pull-up PIN_21, 20, 19, 18
+//#define Enc_Read              (PIND & (1<<PD1))
+#define Enc_Ch_A              (PIND & (1<<PD0))
+#define Enc_Ch_B              (PIND & (1<<PD1))
+*/
+
+/*
+// ***** Encoder *****
+#define ENC_TICK              (ENC_LINE_PER_REV * 2)    // Working Pulse Count
+#define Encoder_Init()         DDRE = B00000000;\
+                               PORTE = B11111111        // pull-up PIN Port E
+
+// what is this for?
+//#define Enc_Read              (PINE & (1<<PE4)) // D2, PE4
+#define Enc_Ch_A              (PINE & (1<<PE4)) //  D2, PE4
+#define Enc_Ch_B              (PINE & (1<<PE5)) // D3, PE5
+*/
+ 
+/* trying to us 18,19 with i2c
+#define ENC_TICK              (ENC_LINE_PER_REV * 2)    // Working Pulse Count
+#define Encoder_Init()         DDRD = B00000000;\
+                               PORTD = B11111111        // pull-up PIN 19, 18
+//#define Enc_Read              (PIND & (1<<PD2))
+#define Enc_Ch_A              (PIND & (1<<PD2)) // 19
+#define Enc_Ch_B              (PIND & (1<<PD3)) // 18 
+*/
+
+
+
+
 
 
 //***** Limit Buttons & LEDs *****
@@ -231,6 +283,19 @@ enum Mode
   Mode_Reserve,
   Mode_Sphere,
   Mode_Divider
+};
+
+const char* ModeS[]
+{
+  "bork",
+  "Thread",
+  "Feed",
+  "aFeed",
+  "Cone_L",
+  "Cone_R",
+  "Reserve",
+  "Sphere",
+  "Divider"
 };
 
 enum Sub_Mode_Thread
@@ -356,11 +421,19 @@ const thread_info_type Thread_Info[] =
 
 
 // ***** Interrupts *****
-#define INT0_Init()               EICRA |= (1<<ISC00)
+#define INT4_Init()               EICRB |= (1<<ISC40)
+//#define INT4_Init()               EICRA |= (1<<ISC00)
+
 #define INT2_Init()               EICRA |= (1<<ISC20)
 
-#define Enable_INT0()             EIMSK |= (1<<INT0)
-#define Disable_INT0()            EIMSK &= ~(1<<INT0)
+
+// todo: naming here kinda sucks
+
+//#define Enable_INT0()             EIMSK |= (1<<INT0)
+//#define Disable_INT0()            EIMSK &= ~(1<<INT0)
+
+#define Enable_INT0()     EIMSK |= (1<<INT4);
+#define Disable_INT0()            EIMSK &= ~(1<<INT4)
 
 #define Ena_INT_Hcoder()      do {EIFR = (1<<INTF2); EIMSK |= (1<<INT2);} while(0)
 #define Disa_INT_Hcoder()         EIMSK &= ~(1<<INT2)
@@ -553,7 +626,9 @@ byte Sub_Mode_Feed = Sub_Mode_Feed_Man;
 byte Sub_Mode_aFeed = Sub_Mode_aFeed_Man;
 byte Sub_Mode_Cone = Sub_Mode_Cone_Man;
 byte Sub_Mode_Sphere = Sub_Mode_Sphere_Man;
-byte Thread_Step = 11;
+
+// default first item in Thread_Info
+byte Thread_Step = 0;
 byte Cone_Step = 0;
 
 long Motor_Z_Pos = 0;
@@ -617,11 +692,17 @@ uint16_t min_OCR3A = HC_MAX_SPEED_1;
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void setup()
 {
-  lcd.begin(16, 2);
-  lcd.setCursor(0, 0);
-  lcd.print("   ELS v.7e2    ");
+  //lcd.begin(16, 2);
+  //lcd.setCursor(0, 0);
+  //lcd.print("   ELS v.7e2    ");
+
+  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
   Serial.begin(115200);
   _delay_ms(1000);
+
+  display.clearDisplay();
+  display.drawPixel(10, 10, WHITE);
+  display.display();
   
   DDRG = B11111111;
   
@@ -633,10 +714,15 @@ void setup()
 //  TIMSK0 = (1<<OCIE0B);
     
   Encoder_Init();
+  pinMode(2, INPUT_PULLUP);
+  //attachInterrupt(digitalPinToInterrupt(0), encISR, CHANGE);
+  //attachInterrupt(digitalPinToInterrupt(2), encISR, CHANGE);
+  //attachInterrupt(4, encISR, CHANGE);
+
   Hand_Init();
   Motor_Init();
   
-  INT0_Init();
+  INT4_Init();
   INT2_Init();
 
   Timer2_Init();
@@ -709,10 +795,19 @@ void loop()
 // *****  Thread ***** ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-ISR(INT0_vect)
-{
-   TachoRemovePulse();
 
+ISR(INT4_vect)
+//ISR(INT0_vect)
+//ISR(INT3_vect) // testing 18,19 with i2c
+//void encISR()
+{
+   //TachoRemovePulse();
+
+  /*
+   Serial.print(Enc_Ch_A,BIN);
+    Serial.print(",");
+    Serial.println(Enc_Ch_B,BIN);
+  */
    if (!Enc_Ch_A)
    {
       if (!Enc_Ch_B)
@@ -721,7 +816,7 @@ ISR(INT0_vect)
          if (++Enc_Pos == ENC_TICK)
          {                                           
             Enc_Pos = 0;
-            TachoSetPulse();
+            //TachoSetPulse();
             if (Joy_Z_flag == ON) {Step_Z_flag = ON;}
             else if (Joy_X_flag == ON) {Step_X_flag = ON;}
          }
@@ -732,7 +827,7 @@ ISR(INT0_vect)
         if (--Enc_Pos < 0)
         { 
            Enc_Pos = ENC_TICK - 1;
-           TachoSetPulse();
+           //TachoSetPulse();
            if (Joy_Z_flag == ON) {Step_Z_flag = ON;}
            else if (Joy_X_flag == ON) {Step_X_flag = ON;}
         }
@@ -747,7 +842,7 @@ ISR(INT0_vect)
          if (--Enc_Pos < 0)
          { 
             Enc_Pos = ENC_TICK - 1;
-            TachoSetPulse();
+            //TachoSetPulse();
             if (Joy_Z_flag == ON) {Step_Z_flag = ON;}
             else if (Joy_X_flag == ON) {Step_X_flag = ON;}
          }
@@ -758,7 +853,7 @@ ISR(INT0_vect)
          if (++Enc_Pos == ENC_TICK)
          {                                           
             Enc_Pos = 0;
-            TachoSetPulse();
+            //TachoSetPulse();
             if (Joy_Z_flag == ON) {Step_Z_flag = ON;}
             else if (Joy_X_flag == ON) {Step_X_flag = ON;}
          }
@@ -1216,7 +1311,10 @@ ISR (TIMER4_COMPB_vect)
 // ***** HandCoder ***** /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-ISR(INT2_vect)
+
+/*
+ISR(INT3_vect)
+//ISR(INT4_vect)
 {
    if (!Hand_Ch_A)
    {
@@ -1229,6 +1327,7 @@ ISR(INT2_vect)
    }
 
 }
+*/
 
 /////////////////////////////////////////////
 ISR (TIMER3_COMPA_vect)
