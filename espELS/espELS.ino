@@ -12,6 +12,7 @@ SSD1306Wire  display(0x3c, 5, 4);
 Neotimer print_timer = Neotimer(100);
 Neotimer display_timer = Neotimer(100);
 Neotimer factor_timer = Neotimer(400);
+Neotimer button_read_timer = Neotimer(300);
 
 
 #define EA 25
@@ -19,8 +20,9 @@ Neotimer factor_timer = Neotimer(400);
 
 
 int sc = 0;
+
+// TODO: what dis?
 int16_t encoderValue = 0;
-int32_t mPos = 0;
 
 // stepper timer stuff
 
@@ -34,8 +36,12 @@ volatile SemaphoreHandle_t timerSemaphore;
 portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
 volatile uint8_t current_accel = 20;
 
-// 30 is borderline with 12v
+// 30 is borderline stalling without acceleration and with 12v
 int timertics = 40;
+
+
+// error codes.... how to clear?
+volatile uint8_t err = 0;
 
 
 
@@ -60,7 +66,6 @@ float pitch=2.0; // TODO: for testing set back to a decent feed rate
 
  int encoder0PinA = EA;                              //the input pin for knob rotary encoder 'I' input
  int encoder0PinB = EB;                              //the input pin for knob rotary encoder 'Q' input
- int buttonPin=2;                                   // the button for the knob rotary encoder push button line
 
 
  int menu = 29;                                      // the parameter for the menu select
@@ -70,10 +75,25 @@ float pitch=2.0; // TODO: for testing set back to a decent feed rate
 
  float depth;                                       // a parameter to define the thread depth in mm on the compound slide. This is set at 75% of the pitch which seems to work
  float pitch_factor=0.75;                           // a parameter to define how deep to push the oblique cutter for each thread pitch in mm. May differ depending on thread design. This one works
- volatile int32_t input_counter=0;                     //a parameter for the interrupt to count input pulses
 
-volatile int32_t encoder0Pos = 0;
- volatile float factor;                             // the ratio of needs steps/rev for stepper to spindle_encoder_resolution for each thread pitch we pick, this is calculated in the programme 
+
+// encoder stuff
+
+
+volatile int32_t input_counter=0;                     //a parameter for the interrupt to count input pulses
+volatile boolean EA_state = 0;
+volatile boolean EB_state = 0;
+
+
+// track the sync to encoder 0 position
+
+volatile boolean start_sync = false;
+volatile boolean synced = false;
+
+volatile int16_t encoder0Pos = 0;
+volatile int32_t spindlePos = 0;
+
+volatile float factor;                             // the ratio of needs steps/rev for stepper to spindle_encoder_resolution for each thread pitch we pick, this is calculated in the programme 
 volatile int32_t delivered_stepper_pulses=0;          //number of steps delivered to the lead screw stepper motor
 volatile float calculated_stepper_pulses=0;        //number of steps we should have delivered for a given lead screw pitch
 
@@ -85,6 +105,11 @@ volatile uint8_t _prevValueAB = 0;
 volatile bool z_dir = true; //CW
 volatile bool z_moving = false;
 
+// tracks the current tool position based on delivered steps
+volatile int32_t toolPos = 0;
+
+volatile int32_t left_limit = 0;
+
 int z_step_pin = 13;
 int z_dir_pin = 12;
 
@@ -92,6 +117,11 @@ portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
 
 portMUX_TYPE dmux = portMUX_INITIALIZER_UNLOCKED;
 
+// buttons
+
+volatile boolean button_left = false;
+bool engaged = false;
+static String sp = String(" ");
 
 
 void do_display(){
@@ -106,9 +136,14 @@ void do_display(){
 
 
   display.drawString(0,15,String(calculated_stepper_pulses));
-  display.drawString(60,15,(String("D:") + String(z_dir)));
+  display.drawString(60,15,(String("D:") + 
+      String(z_dir) + sp + 
+      String(button_left)+ sp + 
+      String(synced))
+      );
+  
   display.drawString(0,30,String(delta));
-  display.drawString(40, 30, String(mPos));
+  display.drawString(40, 30, String(toolPos));
   if( mode_select == 0){
     display.drawString(41,1," lathe "); 
     }
@@ -119,18 +154,37 @@ void do_display(){
 }
 
 void IRAM_ATTR calcDelta(){
-  calculated_stepper_pulses = factor*encoder0Pos;
-  delta = mPos - calculated_stepper_pulses;
+  calculated_stepper_pulses = factor * spindlePos;
+  delta = toolPos - calculated_stepper_pulses;
+}
+
+void IRAM_ATTR updatePos(){
+  if(z_dir){
+    spindlePos++;
+  }else{
+    spindlePos--;
+  }
+
+  if(encoder0Pos == spindle_encoder_resolution){
+    encoder0Pos = 0;
+  }
+  if(encoder0Pos == -1){
+    encoder0Pos = spindle_encoder_resolution -1;
+  }
+
 }
 
 
-void doEncoderA() {
+void IRAM_ATTR doEncoderA() {
   portENTER_CRITICAL(&mux);
+  EA_state = digitalRead(EA);
+  EB_state = digitalRead(EB);
+
   // look for a low-to-high on channel A
-  if (digitalRead(EA) == HIGH) {
+  if (EA_state == HIGH) {
 
     // check channel B to see which way encoder is turning
-    if (digitalRead(EB) == LOW) {
+    if (EB_state == LOW) {
       z_dir = true;
       encoder0Pos = encoder0Pos + 1;         // CW
     }
@@ -143,7 +197,7 @@ void doEncoderA() {
   else   // must be a high-to-low edge on channel A
   {
     // check channel B to see which way encoder is turning
-    if (digitalRead(EB) == HIGH) {
+    if (EB_state == HIGH) {
       z_dir = true;
       encoder0Pos = encoder0Pos + 1;          // CW
     }
@@ -154,17 +208,21 @@ void doEncoderA() {
   }
   // use for debugging - remember to comment out
   //calcDelta();
+  updatePos();
   portEXIT_CRITICAL(&mux);
   //Serial.println (encoder0Pos, DEC);
 }
 
-void doEncoderB() {
+void IRAM_ATTR doEncoderB() {
   portENTER_CRITICAL(&mux);
+  EA_state = digitalRead(EA);
+  EB_state = digitalRead(EB);
+
   // look for a low-to-high on channel B
-  if (digitalRead(EB) == HIGH) {
+  if (EB_state == HIGH) {
 
     // check channel A to see which way encoder is turning
-    if (digitalRead(EA) == HIGH) {
+    if (EA_state == HIGH) {
       encoder0Pos = encoder0Pos + 1;         // CW
     }
     else {
@@ -176,17 +234,19 @@ void doEncoderB() {
 
   else {
     // check channel B to see which way encoder is turning
-    if (digitalRead(EA) == LOW) {
+    if (EA_state == LOW) {
       encoder0Pos = encoder0Pos + 1;          // CW
     }
     else {
       encoder0Pos = encoder0Pos - 1;          // CCW
     }
   }
+  updatePos();
   portEXIT_CRITICAL(&mux);
 }
 
 // old count ISR
+/*
 void IRAM_ATTR count2()    //this is the interrupt routine for the floating point division algorithm
   {
     portENTER_CRITICAL(&mux);
@@ -199,15 +259,14 @@ void IRAM_ATTR count2()    //this is the interrupt routine for the floating poin
     if((calculated_stepper_pulses>delivered_stepper_pulses)&&(mode_select==0))  
        {
 
-        /*
         digitalWrite(stepper_pin,HIGH);                              // turns the stepper_pin output pin to HIGH
         delayMicroseconds(10);                                       // keeps that level HIGH for 10 microseconds
         digitalWrite(stepper_pin,LOW);                               // turns the stepper_pin output pin to LOW
-        */
         delivered_stepper_pulses++;                                  // increment the number of delivered_stepper_pulses to reflect the pulse just delivered
       }
     portEXIT_CRITICAL(&mux);
   }
+*/
 
 void IRAM_ATTR onTimer(){
   // Increment the counter and set the time of ISR
@@ -217,24 +276,45 @@ void IRAM_ATTR onTimer(){
   isrAt = millis();
 
 
-  // if delta "left" try to get there
-  if(z_moving ){
-    z_moving = false;
-    digitalWrite(z_step_pin, LOW);
+  // ensure driving button is engaged, and synced
+  if(button_left && (encoder0Pos == 0 || synced)){
+    synced = true;
+    }
+
+
+  // ensure left limit is left of current position
+
+  if(toolPos > left_limit){
+    //synced = false;
+    err = 1;
   }
 
-  if( delta < 0 && z_dir){
-    z_moving = true;
-    digitalWrite(z_dir_pin, HIGH);
-    digitalWrite(z_step_pin, HIGH);
-    mPos++;
+
+  if(button_left && synced){
+    // if delta "left" try to get there
+    if(z_moving ){
+      z_moving = false;
+      digitalWrite(z_step_pin, LOW);
+    }
+  
+    if( delta < 0 && z_dir){
+      z_moving = true;
+      digitalWrite(z_dir_pin, HIGH);
+      digitalWrite(z_step_pin, HIGH);
+      toolPos++;
+    }
+  
+    if( delta > 0 && !z_dir){
+      z_moving = true;
+      digitalWrite(z_dir_pin, LOW);
+      digitalWrite(z_step_pin, HIGH); 
+      toolPos--;
+    }
   }
 
-  if( delta > 0 && !z_dir){
-    z_moving = true;
-    digitalWrite(z_dir_pin, LOW);
-    digitalWrite(z_step_pin, HIGH); 
-    mPos--;
+  // if not driving ensure synced flag goes off
+  if(!button_left && synced){
+    synced = false;
   }
 
   /*
@@ -250,13 +330,6 @@ void IRAM_ATTR onTimer(){
   // Give a semaphore that we can check in the loop
   xSemaphoreGiveFromISR(timerSemaphore, NULL);
   // It is safe to use digitalRead/Write here if you want to toggle an output
-  //calcDelta();
-
-  // TODO:  based on delta try to step in the right direction and inc/dec mPos when the step is completed
-
-  
-  
-  // TODO:  need a flag to say do_step if mPos != calculated_stepper_pulses
 }
 
 
@@ -349,6 +422,32 @@ void thread_parameters()
          }
  //}
 
+void IRAM_ATTR gotTouch1(){
+  button_left = !button_left;
+}
+
+void IRAM_ATTR left_limit_isr(){
+  //button_left = !button_left;
+  if(!button_left){
+    left_limit = toolPos;
+  }
+}
+
+void readButtons(){
+  if(button_read_timer.repeat()){
+    uint16_t val = touchRead(T3);
+    Serial.print("BTN: ");
+    Serial.println(val);
+    if(val > 1000){
+      //button_left = !button_left;
+    }
+  }
+  Serial.print("LL: ");
+  Serial.println(left_limit);
+  Serial.print("err: ");
+  Serial.println(err);
+}
+
 
 void setFactor(){
 
@@ -406,11 +505,11 @@ void setup() {
   //we must initialize rorary encoder 
   pinMode(EA,INPUT_PULLUP);
   pinMode(EB,INPUT_PULLUP);
+  pinMode(14,INPUT_PULLUP);
 
-  pinMode (buttonPin,INPUT_PULLUP);                    //input for the button of the switch rotary encoder
   pinMode(z_dir_pin, OUTPUT);
   pinMode(z_step_pin, OUTPUT);
-  //pinMode(stepper_pin, OUTPUT);                        // sets up the stepper_pin as an output for the stepper pulses
+
 
 
   // encoder interrupts
@@ -441,6 +540,11 @@ void setup() {
   timerAlarmWrite(timer, timertics, true);
   timerAlarmEnable(timer);
 
+  // setup touch btns
+  touchAttachInterrupt(T3, gotTouch1, 25);
+  //touchAttachInterrupt(T6, gotTouch2, 25);
+  attachInterrupt(digitalPinToInterrupt(14),left_limit_isr,CHANGE);
+
   Serial.println("setup done");
 }
 
@@ -453,4 +557,5 @@ void loop() {
   if(factor_timer.repeat()){
     setFactor();
   }
+  readButtons();
 }
