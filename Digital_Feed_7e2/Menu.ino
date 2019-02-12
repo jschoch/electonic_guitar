@@ -95,7 +95,7 @@ void Menu()
    Serial.println(Limit_Button_New, BIN);
    */
 
-   if (Limit_Button_New != Limit_Button_Old)
+   if (Limit_Button_New == Limit_Button_Old)
    {
       Serial.println(Limit_Button_New, BIN);
       delay(100);

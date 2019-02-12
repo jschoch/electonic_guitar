@@ -1,0 +1,66 @@
+#include <SPI.h>
+#include <Wire.h>
+#include "SSD1306Wire.h"
+
+SSD1306Wire  display(0x3c, 5, 4);
+
+#include <MYEE.h>
+
+ESP32Encoder encoder;
+
+
+#include <neotimer.h>
+
+Neotimer print_timer = Neotimer(100);
+Neotimer display_timer = Neotimer(100);
+
+
+#define EA 25
+#define EB 26 
+
+
+int sc = 0;
+int16_t encoderValue = 0;
+
+
+
+void do_display(){
+  display.clear();
+  display.drawString(0,0, "e: ");
+  encoderValue = encoder.getCount();
+  display.drawString(10, 0,  String(encoderValue));
+  display.drawString(10,20,String(encoder.getMPos()));
+  display.display();
+}
+
+void setup() {
+
+  Serial.begin(115200);
+
+  //we must initialize rorary encoder 
+  pinMode(EA,INPUT_PULLUP);
+  pinMode(EB,INPUT_PULLUP);
+
+
+  //encoder.attachSingleEdge(EA,EB);
+  encoder.attachHalfQuad(EA,EB);
+
+  display.init();
+
+  //display.flipScreenVertically();
+  display.setFont(ArialMT_Plain_10);
+  display.setTextAlignment(TEXT_ALIGN_LEFT);
+    display.setFont(ArialMT_Plain_10);
+    display.drawString(0, 0, "Hello world");
+  display.display();
+
+  Serial.println("setup done");
+}
+
+void loop() {
+
+  
+  if(display_timer.repeat()){
+    do_display();
+  }
+}

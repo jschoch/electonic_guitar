@@ -42,9 +42,11 @@ Adafruit_SSD1306 display(52);
 // ***** Iron Parameters ***** //
 
 #define ENC_LINE_PER_REV     600     // Number of encoder lines per 1 spindle revolution
-#define MOTOR_Z_STEP_PER_REV 200      // Steps per screw turn Z, longitudinal
-#define SCREW_Z              200      // Pitch of longitudinal screw Z in weave, 1.5mm
-#define McSTEP_Z              4      // microsetep, Z Axis, longitudinal
+#define MOTOR_Z_STEP_PER_REV 200     // Steps per screw turn Z, longitudinal
+
+//#define SCREW_Z              4.00      // Pitch of longitudinal screw Z in weave, 1.5mm
+#define SCREW_Z              2
+#define McSTEP_Z             32 
 #define MOTOR_X_STEP_PER_REV 200      // 
 #define SCREW_X              100      // Transverse screw spacing X in weave, 1.0mm
 #define REBOUND_X            400      // The bounce of the incisor in microsteps, for auto-cutting, there must be more backlash transverse
@@ -58,12 +60,12 @@ Adafruit_SSD1306 display(52);
 // TODO: this should be driven by the encoder resolution...
 #define MIN_FEED             3        // Desired Minimum Flow in Weave / Rev, 0.02mm / Rev
 
-#define MAX_FEED             25       // Desired maximum feed in weave / turnover, 0.25mm / rev
-#define MIN_aFEED            20       // Desired Minimum Flow in mm / minute, 20mm / min
-#define MAX_aFEED            400      // Desired maximum flow in mm / minute, 400mm / min
+#define MAX_FEED             0.021       // Desired maximum feed in weave / turnover, 0.25mm / rev
+#define MIN_aFEED            2       // Desired Minimum Flow in mm / minute, 20mm / min
+#define MAX_aFEED            3      // Desired maximum flow in mm / minute, 400mm / min
 
 // Accelerated Moves
-#define MAX_RAPID_MOTION     25                       // Less is greater final speed           //16000000/32/((25+1)*2)/800*60=721rpm
+#define MAX_RAPID_MOTION     100                       // Less is greater final speed           //16000000/32/((25+1)*2)/800*60=721rpm
 #define MIN_RAPID_MOTION    (MAX_RAPID_MOTION + 150)  // More - lower initial speed, max 255 //16000000/32/((150+25+1)*2)/800*60=107rpm
 
 #define REPEAt              (McSTEP_Z * 1)            
@@ -112,13 +114,6 @@ Neotimer mt = Neotimer(50);
 #define CCW              1
 #define ON               1
 #define OFF              0
-
-
-// ***** LCD *****
-#include <LiquidCrystal.h>
-LiquidCrystal lcd(8, 9, 10, 11, 12, 13);
-char LCD_Row_1[17];
-char LCD_Row_2[17];
 
 #define Beeper_Init()          DDRH = B01100010;\
                                PORTH = B10011101    // LCD-H5,H6 Buzzer-PH1_Pin16
@@ -400,6 +395,8 @@ struct thread_info_type
 };
 
 //   Z "whole"  |  Z "fraction" | X "whole" |  X "fraction" | string for display e.g "0.25mm" | decimal in mm e.g 0.250 | number of passes | string for display "750rpm"
+
+//  1/4 microstepping
 const thread_info_type Thread_Info[] =
 {                                                              // We count the following formula:
     { 7,    5,   18,    0,   "0.2mm", 0.20,  4, " 750rpm" },
@@ -413,6 +410,16 @@ const thread_info_type Thread_Info[] =
 
    {  1, 5945,    1,  630,   " 6tpi ", 4.233, 24, " 140rpm" }
 };
+
+/*  32 microstepping
+const thread_info_type Thread_Info[] =
+{                                                              // We count the following formula:
+    { 0,    9375,   18,    0,   "0.2mm", 0.20,  4, " 750rpm" },
+    {0, 10000, 0,0,"1.0mm", 10.0, 4, "foo rpm"},
+   { 0,   938,   18,    0,   "2mm", 2.0,  4, " 750rpm" }, // Enc_Tick(3600)/(Step_Per_Revolution/Feed_Screw*Thread_mm)
+};
+*/
+
 #define TOTAL_THREADS (sizeof(Thread_Info) / sizeof(Thread_Info[0]))
 #define PASS_FINISH   3 // THRD_PS_FN ???
 
@@ -629,6 +636,7 @@ byte Sub_Mode_Sphere = Sub_Mode_Sphere_Man;
 
 // default first item in Thread_Info
 byte Thread_Step = 0;
+
 byte Cone_Step = 0;
 
 long Motor_Z_Pos = 0;
@@ -645,7 +653,9 @@ uint16_t Feed_mm = 0;
 uint16_t aFeed_mm = 0;
 
 uint16_t Start_Speed = ENC_LINE_PER_REV / ((uint32_t)MOTOR_Z_STEP_PER_REV * McSTEP_Z * MIN_FEED / SCREW_Z) /FEED_ACCEL;
-uint16_t max_OCR5A = ENC_LINE_PER_REV / ((uint32_t)MOTOR_Z_STEP_PER_REV * McSTEP_Z * MIN_FEED / SCREW_Z) /FEED_ACCEL;                                                                                     // Начальная скорость подачи при разгоне/торможении
+uint16_t max_OCR5A = ENC_LINE_PER_REV / ((uint32_t)MOTOR_Z_STEP_PER_REV * McSTEP_Z * MIN_FEED / SCREW_Z) /FEED_ACCEL;   // 
+
+//Initial feed rate during acceleration / deceleration
 uint16_t max_OCR4A = (250000 / ((uint32_t)MIN_aFEED * MOTOR_Z_STEP_PER_REV * McSTEP_Z / ((uint32_t)60 * SCREW_Z / 100) * 2) - 1) /FEED_ACCEL;
 
 byte Total_Tooth = 1;
@@ -808,15 +818,23 @@ ISR(INT4_vect)
     Serial.print(",");
     Serial.println(Enc_Ch_B,BIN);
   */
+
+   //  CH A is LOW
    if (!Enc_Ch_A)
    {
       if (!Enc_Ch_B)
       {
          Spindle_Dir = CW;
+          
+         // ??
+         // wait for encoder to reach a standard point (ENC_TICK) to sync movement
          if (++Enc_Pos == ENC_TICK)
          {                                           
             Enc_Pos = 0;
             //TachoSetPulse();
+
+            // ??
+            // If Joystick is left or right, and in the right mode, then try to move Z motor via Step_Z_flag
             if (Joy_Z_flag == ON) {Step_Z_flag = ON;}
             else if (Joy_X_flag == ON) {Step_X_flag = ON;}
          }
@@ -824,6 +842,8 @@ ISR(INT4_vect)
       else
       {
         Spindle_Dir = CCW;
+
+        // Wait for sync
         if (--Enc_Pos < 0)
         { 
            Enc_Pos = ENC_TICK - 1;
@@ -834,6 +854,8 @@ ISR(INT4_vect)
       }
    }
    
+
+   // Ch A is high, so check B for dir
    else
    {
       if (!Enc_Ch_B) 
@@ -861,7 +883,24 @@ ISR(INT4_vect)
    }  
    
    if (Step_Z_flag == ON)
-   {   Motor_Z_RemovePulse();
+      {   
+      Motor_Z_RemovePulse();
+      Serial.print(Ks_Divisor);
+      Serial.print(",");
+      Serial.print(Km_Divisor);
+      Serial.print(",");
+      Serial.print(Km_Count);
+      Serial.print(",");
+      Serial.print(Ks_Count);
+      Serial.print(",");
+      Serial.print(tmp_Ks_Divisor);
+      Serial.print(",");
+      Serial.println(tmp_Accel);
+      Serial.print(",");
+      Serial.println(Joy_Z_flag);
+
+
+      // is this auto mode?
       if ( (Motor_Z_Dir == CW && Motor_Z_Pos > Limit_Pos) || (Motor_Z_Dir == CCW && Motor_Z_Pos < Limit_Pos) || (!Joy_Z_flag) )
       {
          if (tmp_Ks_Divisor < tmp_Accel)
@@ -883,9 +922,11 @@ ISR(INT4_vect)
          else {Step_Z_flag = OFF;}
       }
 
+      // not auto mode
       else
       {
          Ks_Count++;
+         Serial.println("=====) ~~~  .  .");
          if (Ks_Count > tmp_Ks_Divisor)
          {
             Motor_Z_SetPulse();

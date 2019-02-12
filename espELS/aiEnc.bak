@@ -1,0 +1,113 @@
+#include <SPI.h>
+#include <Wire.h>
+#include "SSD1306Wire.h"
+
+SSD1306Wire  display(0x3c, 5, 4);
+
+
+
+#include <neotimer.h>
+
+Neotimer print_timer = Neotimer(100);
+Neotimer display_timer = Neotimer(100);
+
+#include "AiEsp32RotaryEncoder.h"
+#include "Arduino.h"
+
+/*
+connecting Rotary encoder
+CLK (A pin) - to any microcontroler intput pin with interrupt -> in this example pin 32
+DT (B pin) - to any microcontroler intput pin with interrupt -> in this example pin 21
+SW (button pin) - to any microcontroler intput pin -> in this example pin 25
+VCC - to microcontroler VCC (then set ROTARY_ENCODER_VCC_PIN -1) or in this example pin 25
+GND - to microcontroler GND
+*/
+
+#define EA 25
+#define EB 26 
+#define ROTARY_ENCODER_BUTTON_PIN -1 
+#define ROTARY_ENCODER_VCC_PIN -1 /*put -1 of Rotary encoder Vcc is connected directly to 3,3V; else you can use declared output pin for powering rotary encoder */
+
+AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(EA, EB, ROTARY_ENCODER_BUTTON_PIN, ROTARY_ENCODER_VCC_PIN);
+
+int test_limits = 2;
+int sc = 0;
+int16_t encoderValue = 0;
+
+
+void rotary_loop() {
+
+  //lets see if anything changed
+  int16_t encoderDelta = rotaryEncoder.encoderChanged();
+  
+  //optionally we can ignore whenever there is no change
+  /*
+  if (encoderDelta == 0) {
+    Serial.print(".");
+    sc++;
+    if(sc > 80){
+      Serial.println();
+      sc = 0;
+    }
+    return;
+  }
+  */
+  
+
+  //for other cases we want to know what is current value. Additionally often we only want if something changed
+  //example: when using rotary encoder to set termostat temperature, or sound volume etc
+  
+  //if value is changed compared to our last read
+  if (encoderDelta!=0) {
+    //now we need current value
+    encoderValue = rotaryEncoder.readEncoder();
+    //process new value. Here is simple output.
+    Serial.print("Value: ");
+    Serial.println(encoderValue);
+  } 
+  
+}
+
+void do_display(){
+  display.clear();
+  display.drawString(0,0, "e: ");
+  display.drawString(10, 0,  String(encoderValue));
+  display.display();
+}
+
+void setup() {
+
+  Serial.begin(115200);
+
+  //we must initialize rorary encoder 
+  pinMode(EA,INPUT_PULLUP);
+  pinMode(EB,INPUT_PULLUP);
+
+  rotaryEncoder.begin();
+  rotaryEncoder.setup([]{rotaryEncoder.readEncoder_ISR();});
+
+  //optionally we can set boundaries and if values should cycle or not
+
+  rotaryEncoder.setBoundaries(0, (600*4), true); //minValue, maxValue, cycle values (when max go to min and vice versa)
+
+  display.init();
+
+  //display.flipScreenVertically();
+  display.setFont(ArialMT_Plain_10);
+  display.setTextAlignment(TEXT_ALIGN_LEFT);
+    display.setFont(ArialMT_Plain_10);
+    display.drawString(0, 0, "Hello world");
+  display.display();
+
+  Serial.println("setup done");
+}
+
+void loop() {
+  //in loop call your custom function which will process rotary encoder values
+  rotary_loop();
+  if(display_timer.repeat()){
+    do_display();
+  }
+  
+  //delay(50);                               
+}

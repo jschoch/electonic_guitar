@@ -6,14 +6,14 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 void Thread_Left(bool & c_flag, bool & d_flag)
 {
-  //Serial.println("Thread Left");
+  Serial.println("Thread Left ");
   Serial.print(c_flag);
   Serial.print(",");
   Serial.print(Motor_Z_Pos);
   Serial.print(",");
-  Serial.print(Motor_X_Pos);
+  Serial.print(Ks_Count);
   Serial.print(",");
-  Serial.print(Spindle_Count);
+  Serial.print(Km_Count);
    Serial.println(" :");
    if (c_flag == true) return;
    d_flag = false;
