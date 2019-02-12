@@ -2,6 +2,7 @@
 #include <Wire.h>
 #include "SSD1306Wire.h"
 
+
 SSD1306Wire  display(0x3c, 5, 4);
 
 
@@ -17,6 +18,23 @@ Neotimer button_read_timer = Neotimer(300);
 
 #define EA 25
 #define EB 26 
+
+
+// btn pins
+
+#define LBP 15
+#define RBP 2
+#define SBP 14
+#define UBP 16
+#define DBP 39 // SVN
+
+
+#include <Bounce2.h>
+
+Bounce debLBP = Bounce(); 
+Bounce debRBP = Bounce();
+Bounce debSBP = Bounce();
+Bounce debUBP = Bounce();
 
 
 int sc = 0;
@@ -108,7 +126,8 @@ volatile bool z_moving = false;
 // tracks the current tool position based on delivered steps
 volatile int32_t toolPos = 0;
 
-volatile int32_t left_limit = 0;
+int32_t left_limit_max = 2147483646;
+volatile int32_t left_limit = 2147483646;
 
 int z_step_pin = 13;
 int z_dir_pin = 12;
@@ -119,12 +138,47 @@ portMUX_TYPE dmux = portMUX_INITIALIZER_UNLOCKED;
 
 // buttons
 
+uint8_t btn_mode = 0;
+
 volatile boolean button_left = false;
 bool engaged = false;
 static String sp = String(" ");
 
 
 void do_display(){
+  switch (btn_mode) {
+    case 0:
+      do_display0();
+      break;
+    case 1:
+      do_display1();
+      break; 
+    case 2: 
+      do_display2();
+      break;
+  }
+}
+
+// this is the feed mode
+void do_display0(){
+  display.clear();
+  display.drawString(0,0, "FEED: "); 
+  
+
+  if(left_limit != left_limit_max){
+    display.drawString(30,0,"LL:" + String(left_limit));
+  }
+  display.drawString(30,15,"TP:" + String(toolPos));
+  display.display();
+}
+
+void do_display1(){
+  display.clear();
+  display.drawString(0,0, "mystery mode! ");
+  display.display();
+}
+
+void do_display2(){
   display.clear();
   display.drawString(0,0, "e: ");
   encoderValue =  0;
@@ -284,8 +338,10 @@ void IRAM_ATTR onTimer(){
 
   // ensure left limit is left of current position
 
-  if(toolPos > left_limit){
-    //synced = false;
+  if(toolPos > left_limit && z_dir){
+    synced = false;
+    digitalWrite(z_step_pin, LOW);
+    z_moving = false;
     err = 1;
   }
 
@@ -422,7 +478,9 @@ void thread_parameters()
          }
  //}
 
-void IRAM_ATTR gotTouch1(){
+
+/*
+void IRAM_ATTR left_btn_isr(){
   button_left = !button_left;
 }
 
@@ -432,20 +490,71 @@ void IRAM_ATTR left_limit_isr(){
     left_limit = toolPos;
   }
 }
-
+*/
 void readButtons(){
+  debLBP.update();
+  debRBP.update();
+  debSBP.update();
+  debUBP.update();
+
+  handleLBP();
+
+  handleSBP();
+
+  handleUBP();
+
   if(button_read_timer.repeat()){
-    uint16_t val = touchRead(T3);
-    Serial.print("BTN: ");
-    Serial.println(val);
-    if(val > 1000){
+    //uint16_t val = touchRead(T3);
+    //Serial.print("BTN: ");
+    //Serial.println(val);
+    //if(val > 1000){
       //button_left = !button_left;
     }
-  }
   Serial.print("LL: ");
   Serial.println(left_limit);
   Serial.print("err: ");
   Serial.println(err);
+}
+
+void handleLBP(){
+  if(debLBP.read() == LOW){
+    button_left = true;
+  }else{
+    button_left = false;
+  }
+}
+void handleRBP(){
+
+}
+void handleSBP(){
+  if(debSBP.read() == LOW){
+    switch (btn_mode) {
+      case 0:
+        btn_mode = 1;
+        break;
+      case 1:
+        btn_mode = 2;
+        break;
+      case 2:
+        btn_mode = 0;
+        break;
+      default: 
+        break;
+    }
+  }
+
+
+}
+void handleUBP(){
+  if(debUBP.read() == LOW){
+    if(left_limit != left_limit_max){
+      left_limit = left_limit_max;
+    }
+    else{
+      left_limit = toolPos; 
+    }
+  }
+
 }
 
 
@@ -505,8 +614,6 @@ void setup() {
   //we must initialize rorary encoder 
   pinMode(EA,INPUT_PULLUP);
   pinMode(EB,INPUT_PULLUP);
-  pinMode(14,INPUT_PULLUP);
-
   pinMode(z_dir_pin, OUTPUT);
   pinMode(z_step_pin, OUTPUT);
 
@@ -540,10 +647,27 @@ void setup() {
   timerAlarmWrite(timer, timertics, true);
   timerAlarmEnable(timer);
 
-  // setup touch btns
-  touchAttachInterrupt(T3, gotTouch1, 25);
+  // setup buttons
+  //touchAttachInterrupt(T3, gotTouch1, 25);
   //touchAttachInterrupt(T6, gotTouch2, 25);
-  attachInterrupt(digitalPinToInterrupt(14),left_limit_isr,CHANGE);
+
+  pinMode(LBP,INPUT_PULLUP);
+  pinMode(RBP,INPUT_PULLUP);
+  pinMode(UBP,INPUT_PULLUP);
+  pinMode(DBP,INPUT_PULLUP);
+  pinMode(SBP,INPUT_PULLUP);
+
+  debLBP.attach(LBP);
+  debLBP.interval(50);
+
+  debRBP.attach(RBP);
+  debRBP.interval(50);
+
+  debSBP.attach(SBP);
+  debSBP.interval(50);
+
+  debUBP.attach(UBP);
+  debUBP.interval(50);
 
   Serial.println("setup done");
 }
@@ -557,5 +681,6 @@ void loop() {
   if(factor_timer.repeat()){
     setFactor();
   }
+  
   readButtons();
 }
