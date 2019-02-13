@@ -13,7 +13,7 @@ SSD1306Wire  display(0x3c, 5, 4);
 Neotimer print_timer = Neotimer(100);
 Neotimer display_timer = Neotimer(100);
 Neotimer factor_timer = Neotimer(400);
-Neotimer button_read_timer = Neotimer(300);
+Neotimer button_read_timer = Neotimer(5);
 
 
 #define EA 25
@@ -29,6 +29,7 @@ Neotimer button_read_timer = Neotimer(300);
 #define DBP 39 // SVN
 
 
+#define BOUNCE_LOCK_OUT
 #include <Bounce2.h>
 
 Bounce debLBP = Bounce(); 
@@ -73,7 +74,10 @@ volatile uint8_t err = 0;
 
 int microsteps = 32;
 int native_steps = 200;  // 1.8 degree == 200, 0.9 degree == 400, 3 phase is 1.2 degree etc etc
-int motor_steps= microsteps * native_steps * lead_screw_pitch;                   // the number of steps per revolution of the lead screw
+//int motor_steps= (microsteps * native_steps) / lead_screw_pitch;                   // the number of steps per revolution of the lead screw
+
+// the number of steps per revolution of the lead screw
+int motor_steps = (microsteps * native_steps) /lead_screw_pitch; 
 
  //float pitch=0.085;                     // the pitch to be cut in millimeters.  It also defines the lathe pitch for turning when first power on. 
 
@@ -86,7 +90,7 @@ float pitch=2.0; // TODO: for testing set back to a decent feed rate
  int encoder0PinB = EB;                              //the input pin for knob rotary encoder 'Q' input
 
 
- int menu = 29;                                      // the parameter for the menu select
+ uint8_t menu = 29;                                      // the parameter for the menu select
 
  int mode_select=0;                                 // a parameter to define the programming versus operation settings
  int tpi;                                           // a paremter to define the number of threads/inch
@@ -174,7 +178,11 @@ void do_display0(){
 
 void do_display1(){
   display.clear();
-  display.drawString(0,0, "mystery mode! ");
+  display.drawString(0,0, "config: ");
+  display.drawString(60,0,"Mode: " + String(menu));
+  display.drawString(40,15,String(pitch) + " mm");
+  display.drawString(0,45, "Depth: " + String(depth));
+
   display.display();
 }
 
@@ -415,88 +423,84 @@ void thread_parameters()
          oldButtonState = newButtonState;   
   */
 
-            
-  if(mode_select==1)
-          {
-          /* 
-                 if ((encoder0PinALast == LOW) && (n == HIGH)) {                 //true if button got pushed?
-                       if (digitalRead(encoder0PinB) == LOW) {                   //this is the quadrature routine for the rotary encoder
-                       menu++;
-                 } else {
-                       menu--;
-                 }
-          */
-                 //Serial.println(menu);
-                  if(menu>35){                                      //the next four lines allows the rotary select to go around the menu as a loop in either direction
-                             menu=35;
-                             }
-                  if(menu<1){
-                             menu=1;
-                             }
-                                 switch(menu) {
-                                             case(1):     pitch=0.085;                  break;  // Normal Turning
-                                             case(2):     pitch=0.050;                  break;  // Fine Turning
-                                             case(3):     pitch=0.160;                  break;  // Coarse Turning
-                               //...........................................................................................imperial data              
-                                             case(4):     tpi=11;   break;
-                                             case(6):     tpi=12;   break;
-                                             case(7):     tpi=13;   break;
-                                             case(8):     tpi=16;   break;
-                                             case(9):     tpi=18;   break;
-                                             case(10):    tpi=20;   break;
-                                             case(11):    tpi=24;   break;
-                                             case(12):    tpi=28;   break;
-                                             case(13):    tpi=32;   break;
-                                             case(14):    tpi=36;   break;
-                                             case(15):    tpi=40;   break;
-                                             case(16):    tpi=42;   break;
-                                             case(17):    tpi=44;   break;
-                                             case(18):    tpi=48;   break;
-                                             case(19):    tpi=52;   break;
-                              //.............................................................................................metric data               
-                                             case(20):    pitch=0.4;   break;      
-                                             case(21):    pitch=0.5;   break;      
-                                             case(22):    pitch=0.7;   break;      
-                                             case(23):    pitch=0.75;  break;      
-                                             case(24):    pitch=0.8;   break;      
-                                             case(25):    pitch=1.0;   break;      
-                                             case(26):    pitch=1.25;  break;      
-                                             case(27):    pitch=1.5;   break;      
-                                             case(28):    pitch=1.75;  break;      
-                                             case(29):    pitch=2.0;   break;      
-                                             case(30):    pitch=2.5;   break;      
-                                             case(31):    pitch=3.0;   break;      
-                                             case(32):    pitch=3.5;   break;      
-                                             case(33):    pitch=4.0;   break;      
-                                             case(34):    pitch=5.0;   break;
-                                             case(35):    pitch=7.0;   break;
-                                                }
-        }
-
-        delivered_stepper_pulses=0;
-        input_counter=0;  
-         }
- //}
-
-
-/*
-void IRAM_ATTR left_btn_isr(){
-  button_left = !button_left;
+  switch(menu) {
+    case(1):     pitch=0.085;                  break;  // Normal Turning
+    case(2):     pitch=0.050;                  break;  // Fine Turning
+    case(3):     pitch=0.160;                  break;  // Coarse Turning
+    //...........................................................................................imperial data              
+    case(4):     tpi=11;   break;
+    case(6):     tpi=12;   break;
+    case(7):     tpi=13;   break;
+    case(8):     tpi=16;   break;
+    case(9):     tpi=18;   break;
+    case(10):    tpi=20;   break;
+    case(11):    tpi=24;   break;
+    case(12):    tpi=28;   break;
+    case(13):    tpi=32;   break;
+    case(14):    tpi=36;   break;
+    case(15):    tpi=40;   break;
+    case(16):    tpi=42;   break;
+    case(17):    tpi=44;   break;
+    case(18):    tpi=48;   break;
+    case(19):    tpi=52;   break;
+    //.............................................................................................metric data               
+    case(20):    pitch=0.4;   break;      
+    case(21):    pitch=0.5;   break;      
+    case(22):    pitch=0.7;   break;      
+    case(23):    pitch=0.75;  break;      
+    case(24):    pitch=0.8;   break;      
+    case(25):    pitch=1.0;   break;      
+    case(26):    pitch=1.25;  break;      
+    case(27):    pitch=1.5;   break;      
+    case(28):    pitch=1.75;  break;      
+    case(29):    pitch=2.0;   break;      
+    case(30):    pitch=2.5;   break;      
+    case(31):    pitch=3.0;   break;      
+    case(32):    pitch=3.5;   break;      
+    case(33):    pitch=4.0;   break;      
+    case(34):    pitch=5.0;   break;
+    case(35):    pitch=7.0;   break;
+    }
 }
 
-void IRAM_ATTR left_limit_isr(){
-  //button_left = !button_left;
-  if(!button_left){
-    left_limit = toolPos;
-  }
-}
-*/
+
+
 void readButtons(){
-  debLBP.update();
-  debRBP.update();
-  debSBP.update();
-  debUBP.update();
+  if(button_read_timer.repeat()){
+    debLBP.update();
+    debRBP.update();
+    debSBP.update();
+    debUBP.update();
+    switch (btn_mode){
+      case 0:
+        // same as 2 for now
+        readButtons2();
+        break;
+      case 1:
+        readButtons1();
+        break;
+      case 2: 
+        readButtons2();
+        break;
+    
+    }
+  }
+    
+}
 
+void readButtons1(){
+
+  handleSBP();
+  if(debLBP.rose()){
+    menu++;
+  }
+  if(debRBP.rose()){
+    menu--;
+  }
+
+}
+
+void readButtons2(){
   handleLBP();
 
   handleSBP();
@@ -527,7 +531,7 @@ void handleRBP(){
 
 }
 void handleSBP(){
-  if(debSBP.read() == LOW){
+  if(debSBP.rose()){
     switch (btn_mode) {
       case 0:
         btn_mode = 1;
@@ -546,7 +550,7 @@ void handleSBP(){
 
 }
 void handleUBP(){
-  if(debUBP.read() == LOW){
+  if(debUBP.rose()){
     if(left_limit != left_limit_max){
       left_limit = left_limit_max;
     }
@@ -658,16 +662,16 @@ void setup() {
   pinMode(SBP,INPUT_PULLUP);
 
   debLBP.attach(LBP);
-  debLBP.interval(50);
+  debLBP.interval(20);
 
   debRBP.attach(RBP);
-  debRBP.interval(50);
+  debRBP.interval(20);
 
   debSBP.attach(SBP);
-  debSBP.interval(50);
+  debSBP.interval(20);
 
   debUBP.attach(UBP);
-  debUBP.interval(50);
+  debUBP.interval(20);
 
   Serial.println("setup done");
 }
