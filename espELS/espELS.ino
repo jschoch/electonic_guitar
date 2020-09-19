@@ -597,7 +597,7 @@ void setFactor(){
               {
                 // the depth of cut in mm on the compound slide I need for each thread pitch.  
                 // I use this during operation rather than looking it up each time
-o
+
                depth=pitch_factor*25.4/tpi;
 
                 // the imperial factor needed to account for details of lead screw pitch, 
