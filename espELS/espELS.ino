@@ -595,17 +595,22 @@ void setFactor(){
             {
             if(menu<20)
               {
-               depth=pitch_factor*25.4/tpi;                      //the depth of cut in mm on the compound slide I need for each thread pitch.  I use this during operation rather than looking it up each time
-               factor= motor_steps*25.4/(tpi*lead_screw_pitch*spindle_encoder_resolution);            //the imperial factor needed to account for details of lead screw pitch, stepper motor #pulses/rev and encoder #pulses/rev
-               //lcd.setCursor(0,0);  lcd.print("Imperial ");  lcd.print(tpi);       lcd.print(" tpi ");
-               //lcd.setCursor(0,1);  lcd.print("depth="); lcd.print(depth);     lcd.print(" mm"); 
+                // the depth of cut in mm on the compound slide I need for each thread pitch.  
+                // I use this during operation rather than looking it up each time
+o
+               depth=pitch_factor*25.4/tpi;
+
+                // the imperial factor needed to account for details of lead screw pitch, 
+                // stepper motor #pulses/rev and encoder #pulses/rev
+               factor= motor_steps*25.4/(tpi*lead_screw_pitch*spindle_encoder_resolution);  
                }
              else
                {
-               depth=pitch_factor*pitch;                          //the depth of cut in mm on the compound slide
-               factor=pitch*motor_steps/(lead_screw_pitch*spindle_encoder_resolution);         //the metric factor needed to account for details of lead screw pitch, stepper motor #pulses/rev and encoder #pulses/rev
-               //lcd.setCursor(0,0);     lcd.print("Metric ");  lcd.print(pitch);     lcd.print(" mm");
-               //lcd.setCursor(0,1);     lcd.print("depth=");         lcd.print(depth);     lcd.print(" mm");
+                // the depth of cut in mm on the compound slide
+               depth=pitch_factor*pitch; 
+                // the metric factor needed to account for details of lead screw pitch, 
+                // stepper motor #pulses/rev and encoder #pulses/rev
+               factor=pitch*motor_steps/(lead_screw_pitch*spindle_encoder_resolution);
                }
              }
                                                      
