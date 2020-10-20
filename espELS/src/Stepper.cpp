@@ -25,6 +25,7 @@ volatile int delay_ticks = 3;
 volatile int previous_delay_ticks = 0;
 volatile int min_delay_ticks = 5;
 volatile bool z_dir = true; //CW
+volatile bool z_prev_dir = true;
 volatile bool z_moving = false;
 
 int z_step_pin = 13;
@@ -36,7 +37,11 @@ bool getDir(){
   return z_dir;
 }
 void setDir(bool d){
-  z_dir = d;
+  
+  if (d != z_dir){
+    z_dir = d;
+    digitalWrite(z_dir_pin, d); 
+  }
 }
 
 void stepLeft(){
@@ -77,12 +82,16 @@ void IRAM_ATTR onTimer(){
 
   // if the queue is not full and we are not currently making a signal
   if(delta > 0 && z_moving == false){
+    // delta > 0 means we need to set dir to true
+    setDir(true);
     digitalWrite(z_step_pin, HIGH);
     toolPos--;
     z_moving = true;
   }  
-  
+
   if(delta < 0 && z_moving == false){
+    // delta < 0 means we need to set dir to false
+    setDir(false);
     digitalWrite(z_step_pin, HIGH);
     toolPos++;
     z_moving = true;
