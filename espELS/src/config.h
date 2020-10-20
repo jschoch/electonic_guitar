@@ -17,6 +17,7 @@
 #include "Encoder.h"
 #include "motion.h"
 #include "freertos/task.h"
+#include <ESP32Encoder.h>
 
 
 
@@ -95,5 +96,6 @@ extern const char* DISPLAY_MODE [];
 extern volatile bool z_moving;
 extern volatile bool z_pause;
 extern volatile int delay_ticks;
+extern ESP32Encoder encoder;
 
 #endif

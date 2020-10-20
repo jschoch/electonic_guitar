@@ -10,6 +10,7 @@ void IRAM_ATTR calcDelta(){
   
 
   // calculate the current spindle position in motor steps.
+  spindlePos = encoder.getCount();
   calculated_stepper_pulses = factor * spindlePos;
 
   // calculate the delta in motor steps between the current spindle position and the current motor position aka toolPos
