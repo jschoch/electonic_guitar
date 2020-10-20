@@ -16,6 +16,9 @@ bool button_right = false;
 bool button_up = false;
 bool button_down = false;
 bool button_menu = false;
+int feed_menu = 1;
+volatile bool feeding = false;
+volatile bool feeding_dir = true;
 
 
 // Debouncer
@@ -66,7 +69,7 @@ void readConfigureButtons(){
 }
 
 void readStartupButtons(){
-  handleLBP();
+  //handleLBP();
   handleRBP();
   handleSBP();
   handleUBP();
@@ -78,49 +81,82 @@ void readStartupButtons(){
   if(button_up){
     mode_select = FEED;
   }
-  if(button_left){
+  if(debLBP.rose()){
     display_mode = READY;
-    delay(200);
+    //delay(200);
   }
 
 }
 
 void readReadyButtons(){
-  handleLBP();
+  //handleLBP();
   handleRBP();
-  handleSBP();
+  //handleSBP();
   handleUBP();
   handleDBP();
-  if(button_menu){
+  if(debSBP.rose()){
     display_mode = STARTUP;
     return;
   }
-  if(button_left){
+  if(debLBP.rose()){
     display_mode = DSTATUS;
     return;
   }
 }
 void readDstatusButtons(){
-  handleLBP();
-  handleRBP();
+  //handleLBP();
+  //handleRBP();
   handleSBP();
   handleUBP();
   handleDBP();
 
-  if(button_left){
-
-  }
-  if(button_right){
+  //  if left button pressed and not feeding
+  if(debLBP.read() == LOW && !feeding){
+    // start feeding
+    toolPos = factor * encoder.getCount();
     
+    feeding_dir = true;
+    feeding = true;
+  }
+  // if right button pressed and not feeding
+  if(debRBP.read() == LOW && !feeding){
+    // start feeding
+    toolPos = factor * encoder.getCount();
+
+    Serial.print("fuckyou: ");
+    Serial.print(spindlePos);
+    Serial.print(",");
+    Serial.print(toolPos);
+    Serial.print(",");
+    Serial.print(delta);
+    Serial.print(",");
+    
+    feeding_dir = false;
+    feeding = true;
+  }
+  if(debRBP.read() == LOW && feeding){
+    // keep feeding
+    // update?
+  }
+
+  // if left button up and feeding
+  if(debLBP.rose() && feeding){
+   feeding = false;
+  }
+  // if right button up  and feeding
+  if(debRBP.rose() && feeding){
+   feeding = false;
   }
   if(button_menu){
     display_mode = STARTUP;
   }
   if(button_up){
-    menu++;
+    feed_menu++;
+    feed_parameters();
   }
   if(button_down){
-    menu--;
+    feed_menu--;
+    feed_parameters();
   }
   
 }
@@ -294,4 +330,22 @@ void thread_parameters()
     case(34):    pitch=5.0;   break;
     case(35):    pitch=7.0;   break;
     }
+  // TODO: this is a bit of a hack, changing feed changes the factor which changes the delta.  not sure of a good way to update this and maintain positions.
+  toolPos = encoder.getCount();
+  setFactor();
+}
+
+void feed_parameters(){
+  
+  if(feed_menu > 3) feed_menu = 1;
+  if(feed_menu < 1) feed_menu = 4;
+
+  switch(feed_menu) {
+    case(1):     pitch=0.085;                  break;  // Normal Turning
+    case(2):     pitch=0.050;                  break;  // Fine Turning
+    case(3):     pitch=0.160;                  break;  // Coarse Turning
+    case(4):     pitch=0.05;                  break;  // Coarse Turning
+  }
+  toolPos = encoder.getCount();
+  factor= (motor_steps*pitch)/(lead_screw_pitch*spindle_encoder_resolution); 
 }

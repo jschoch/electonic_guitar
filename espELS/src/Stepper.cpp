@@ -38,7 +38,7 @@ bool getDir(){
 }
 void setDir(bool d){
   
-  if (d != z_dir){
+  if (d != z_dir ){
     z_dir = d;
     digitalWrite(z_dir_pin, d); 
   }
@@ -52,50 +52,64 @@ void IRAM_ATTR onTimer(){
   // Increment the counter and set the time of ISR
   portENTER_CRITICAL_ISR(&timerMux);
 
-  if(delay_ticks == 0 && z_pause == true){
+  if(feeding){
+    if(delay_ticks == 0 && z_pause == true){
       z_pause = false;
       z_moving = false;
     }
 
-  // delay a bit after stepping low.
-  if(z_pause == true && delay_ticks > 0){
-    delay_ticks--;
-    
+    // delay a bit after stepping low.
+    if(z_pause == true && delay_ticks > 0){
+      delay_ticks--;
+      
+
+      
+      portEXIT_CRITICAL_ISR(&timerMux);
+      xSemaphoreGiveFromISR(timerSemaphore, NULL);
+      return;
+    }
+
+
+    // turn the pulse off if we were moving.
+    if(z_moving == true){
+      digitalWrite(z_step_pin, LOW);    
+      z_pause = true;
+      
+      // figure out how long to delay
+      //delay_ticks = tbl[speed];
+    }
 
     
-    portEXIT_CRITICAL_ISR(&timerMux);
-    xSemaphoreGiveFromISR(timerSemaphore, NULL);
-    return;
-  }
 
+    // if the queue is not full and we are not currently making a signal
+    if(delta > 0 && z_moving == false){
+      // delta > 0 means we need to set dir to true
+      setDir(true);
+      digitalWrite(z_step_pin, HIGH);
+      if(feeding_dir){
+         toolPos--; 
+      }else{
+          toolPos++;  
+      }
+      
+      z_moving = true;
+    }  
 
-  // turn the pulse off if we were moving.
-  if(z_moving == true){
-    digitalWrite(z_step_pin, LOW);    
-    z_pause = true;
-    
-    // figure out how long to delay
-    //delay_ticks = tbl[speed];
+    if(delta < 0 && z_moving == false){
+      // delta < 0 means we need to set dir to false
+      setDir(false);
+      digitalWrite(z_step_pin, HIGH);
+      
+      if(feeding_dir){
+         toolPos++; 
+      }else{
+          toolPos--;  
+      }
+      z_moving = true;
+    }
   }
 
   
-
-  // if the queue is not full and we are not currently making a signal
-  if(delta > 0 && z_moving == false){
-    // delta > 0 means we need to set dir to true
-    setDir(true);
-    digitalWrite(z_step_pin, HIGH);
-    toolPos--;
-    z_moving = true;
-  }  
-
-  if(delta < 0 && z_moving == false){
-    // delta < 0 means we need to set dir to false
-    setDir(false);
-    digitalWrite(z_step_pin, HIGH);
-    toolPos++;
-    z_moving = true;
-  }
 
   
   portEXIT_CRITICAL_ISR(&timerMux);

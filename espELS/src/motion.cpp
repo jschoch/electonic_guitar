@@ -11,10 +11,17 @@ void IRAM_ATTR calcDelta(){
 
   // calculate the current spindle position in motor steps.
   spindlePos = encoder.getCount();
+
   calculated_stepper_pulses = factor * spindlePos;
 
   // calculate the delta in motor steps between the current spindle position and the current motor position aka toolPos
-  delta = toolPos - calculated_stepper_pulses;
+
+  if(feeding_dir){
+    delta = toolPos - calculated_stepper_pulses;   
+  }else{
+    delta = calculated_stepper_pulses - toolPos;
+  }
+  
 
   
   if (delta > 1){
@@ -41,9 +48,10 @@ void IRAM_ATTR calcDelta(){
   
 }
 
+
 void init_motion(){
   
   // motor_steps = (microsteps * native_steps) /lead_screw_pitch;
   // factor is motor steps per spindle tick
-  factor= (motor_steps*pitch)/(lead_screw_pitch*spindle_encoder_resolution); 
+  setFactor();
 }

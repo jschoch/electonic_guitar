@@ -67,11 +67,15 @@ void do_configure_display(){
 
 void do_status_display(){
   
-  //display.drawString(0,0, "enc: " + String((String)encoder.getCount()) + " T: " + String(toolPos));
-  display.drawString(0,0,  " T: " + String(toolPos));
+  display.drawString(0,0, "enc: " + String((uint32_t)encoder.getCount()) + " T: " + String(toolPos));
+  //display.drawString(0,0,  " T: " + String(toolPos));
   display.drawString(0,11,"f: " +String(factor) + " D: " + String(delta));
 
   display.drawString(0,21,"P:" + String(pitch));
+
+  if(feeding){
+    display.drawString(110,51,"F:"+ String(feeding_dir));
+  }
     
   if(getDir()){
     display.drawString(100,51,"L");
