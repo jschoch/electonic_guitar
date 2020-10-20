@@ -1,5 +1,6 @@
 #include "Encoder.h"
 #include "Stepper.h"
+#include "motion.h"
 
 volatile int16_t encoder0Pos = 0;
 
@@ -115,4 +116,14 @@ void init_encoder(){
   attachInterrupt(digitalPinToInterrupt(25),doEncoderA,CHANGE);
   attachInterrupt(digitalPinToInterrupt(26),doEncoderB,CHANGE);
 
+  /*
+  xTaskCreate(
+      calcDelta,           // Task function.
+      "calcDelta",        // name of task. 
+      1000,                    // Stack size of task 
+      NULL,                     // parameter of the task 
+      1,                        // priority of the task 
+      NULL
+      );                    // Task handle to keep track of created task 
+  */
 }

@@ -1,31 +1,36 @@
 #include "Stepper.h"
 
+/////////////////////////////////////////////////
 // stepper timer stuff
+//////////////////////////////////////////////////
 
-volatile int interruptCounter;
-int totalInterruptCounter;
-volatile uint32_t isrCounter = 0;
-volatile uint32_t lastIsrAt = 0;
-volatile uint32_t isrAt = 0;
+
 hw_timer_t * timer = NULL;
 volatile SemaphoreHandle_t timerSemaphore;
 portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
-volatile uint8_t current_accel = 20;
-volatile bool synced = false;
+//volatile uint8_t current_accel = 20;
+volatile bool z_pause = false;
+//volatile bool synced = false;
 
-// 30 is borderline stalling without acceleration and with 12v
-int timertics = 40;
+
+// number of ticks to wait between timer events
+int timertics = 10;
 
 // used to figure out how many steps we need to get to the right position
+// delta is in stepper steps
 volatile int32_t delta = 0;
 
-volatile uint8_t _currValueAB = 0;
-volatile uint8_t _prevValueAB = 0;
+
+volatile int delay_ticks = 3;
+volatile int previous_delay_ticks = 0;
+volatile int min_delay_ticks = 5;
 volatile bool z_dir = true; //CW
 volatile bool z_moving = false;
 
 int z_step_pin = 13;
 int z_dir_pin = 12;
+
+int use_limit = false;
 
 bool getDir(){
   return z_dir;
@@ -34,55 +39,53 @@ void setDir(bool d){
   z_dir = d;
 }
 
+void stepLeft(){
+
+}
+
 void IRAM_ATTR onTimer(){
   // Increment the counter and set the time of ISR
   portENTER_CRITICAL_ISR(&timerMux);
-  isrCounter++;
-  lastIsrAt = isrAt;
-  isrAt = millis();
 
-
-  // ensure driving button is engaged, and synced
-  if(button_left && (encoder0Pos == 0 || synced)){
-    synced = true;
-    }
-
-
-  // ensure left limit is left of current position
-
-  if(toolPos > left_limit && z_dir){
-    synced = false;
-    digitalWrite(z_step_pin, LOW);
-    z_moving = false;
-    
-  }
-
-
-  if(button_left && synced){
-    // if delta "left" try to get there
-    if(z_moving ){
+  if(delay_ticks == 0 && z_pause == true){
+      z_pause = false;
       z_moving = false;
-      digitalWrite(z_step_pin, LOW);
     }
-  
-    if( delta < 0 && z_dir){
-      z_moving = true;
-      digitalWrite(z_dir_pin, HIGH);
-      digitalWrite(z_step_pin, HIGH);
-      toolPos++;
-    }
-  
-    if( delta > 0 && !z_dir){
-      z_moving = true;
-      digitalWrite(z_dir_pin, LOW);
-      digitalWrite(z_step_pin, HIGH); 
-      toolPos--;
-    }
+
+  // delay a bit after stepping low.
+  if(z_pause == true && delay_ticks > 0){
+    delay_ticks--;
+    
+
+    
+    portEXIT_CRITICAL_ISR(&timerMux);
+    xSemaphoreGiveFromISR(timerSemaphore, NULL);
+    return;
   }
 
-  // if not driving ensure synced flag goes off
-  if(!button_left && synced){
-    synced = false;
+
+  // turn the pulse off if we were moving.
+  if(z_moving == true){
+    digitalWrite(z_step_pin, LOW);    
+    z_pause = true;
+    
+    // figure out how long to delay
+    //delay_ticks = tbl[speed];
+  }
+
+  
+
+  // if the queue is not full and we are not currently making a signal
+  if(delta > 0 && z_moving == false){
+    digitalWrite(z_step_pin, HIGH);
+    toolPos--;
+    z_moving = true;
+  }  
+  
+  if(delta < 0 && z_moving == false){
+    digitalWrite(z_step_pin, HIGH);
+    toolPos++;
+    z_moving = true;
   }
 
   

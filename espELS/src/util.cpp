@@ -14,6 +14,7 @@ const char* DISPLAY_MODE [] =
 {
   "Startup",
   "Configure",
-  "Status"
+  "Status",
+  "Ready"
 };
 

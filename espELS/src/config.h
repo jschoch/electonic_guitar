@@ -16,7 +16,7 @@
 #include "Stepper.h"
 #include "Encoder.h"
 #include "motion.h"
-
+#include "freertos/task.h"
 
 
 
@@ -25,9 +25,12 @@
 #define EA 25
 #define EB 26 
 
+#define USESSD1306 1
+
 // Machine Settings
 
-#define LEAD_SCREW_PITCH 0.1
+// lead screw pitch in mm
+#define LEAD_SCREW_PITCH 5
 #define MICROSTEPS 32
 #define MOTOR_TYPE 1 // 1 is 1.8 degree, 2 is .9 degree
 
@@ -37,7 +40,6 @@
 // The applies to the 'lead_screw_pitch parameter' and the 'motor_steps' parameter. I have used numbers which apply to a Wabeco D6000 lathe. You must edit for your particular lathe. 
  
  
-//float lead_screw_pitch=2.0;            // the pitch of the lathe lead screw in mm
 extern float lead_screw_pitch;
 extern int microsteps;
 extern int native_steps;
@@ -90,5 +92,8 @@ extern uint8_t menu;
 extern volatile bool button_left;
 extern const char* FEED_MODE [];
 extern const char* DISPLAY_MODE [];
+extern volatile bool z_moving;
+extern volatile bool z_pause;
+extern volatile int delay_ticks;
 
 #endif

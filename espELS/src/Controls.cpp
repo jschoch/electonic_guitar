@@ -10,7 +10,7 @@ Neotimer button_read_timer = Neotimer(30);
 int32_t left_limit_max = 2147483646;
 volatile int32_t left_limit = 2147483646;
 uint8_t btn_mode = FEED;
-uint8_t menu = 29; 
+uint8_t menu = 33; 
 volatile bool button_left = false;
 bool button_right = false;
 bool button_up = false;
@@ -25,7 +25,7 @@ Bounce debSBP = Bounce();
 Bounce debUBP = Bounce();
 Bounce debDBP = Bounce();
 
-int mode_select = STARTUP;
+int mode_select = FEED;
 
 void init_controls(){
   pinMode(LBP,INPUT_PULLUP);
@@ -72,10 +72,57 @@ void readStartupButtons(){
   handleUBP();
   handleDBP();
 
+  if(button_down){
+    mode_select = THREAD;
+  }
+  if(button_up){
+    mode_select = FEED;
+  }
+  if(button_left){
+    display_mode = READY;
+    delay(200);
+  }
+
 }
 
+void readReadyButtons(){
+  handleLBP();
+  handleRBP();
+  handleSBP();
+  handleUBP();
+  handleDBP();
+  if(button_menu){
+    display_mode = STARTUP;
+    return;
+  }
+  if(button_left){
+    display_mode = DSTATUS;
+    return;
+  }
+}
 void readDstatusButtons(){
+  handleLBP();
+  handleRBP();
+  handleSBP();
+  handleUBP();
+  handleDBP();
 
+  if(button_left){
+
+  }
+  if(button_right){
+    
+  }
+  if(button_menu){
+    display_mode = STARTUP;
+  }
+  if(button_up){
+    menu++;
+  }
+  if(button_down){
+    menu--;
+  }
+  
 }
 
 void handleLBP(){
@@ -134,6 +181,9 @@ void read_buttons(){
         break;
       case DSTATUS: 
         readDstatusButtons();
+        break;
+      case READY: 
+        readReadyButtons();
         break;
     
     }

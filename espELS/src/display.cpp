@@ -22,7 +22,7 @@ void clear(){
 // TODO: figure out best way to deal with different displays or using Serial.
 
 void init_display(){
-#ifdef USESSD1306
+//#ifdef USESSD1306
   // setup the display
   
   display.init();
@@ -31,7 +31,7 @@ void init_display(){
 
   display.drawString(0, 0, "Hello world");
   display.display();
-#endif
+//#endif
 
 }
 
@@ -43,15 +43,23 @@ static String sp = String(" ");
 // this is the feed mode
 void do_startup_display(){
  
-  //display.drawString(0,0,String(FEED_MODE[mode_select]));
-  //display.drawString(0,0,"M: "+ String(mode_select));
-  //display.drawString(0,11,"P:" + String(pitch));
-  //display.display();
+  
+  display.drawString(0,0,"M: "+ String(mode_select));
+  display.drawString(30,0,String(FEED_MODE[mode_select]));
+  display.drawString(0,11,"P:" + String(pitch));
+  display.display();
 }
 
+void do_ready_display(){
+  display.drawString(0,0,"System Ready!") ;
+  display.drawString(0,11,"Press Left Button to start");
+  display.drawString(0,22, "feed pitch: " + String(pitch));
+  display.drawString(0,33, String(FEED_MODE[mode_select]));
+  display.display();
+}
 // this is the config mode
 void do_configure_display(){
-  clear();
+ 
   display.drawString(0,0, "config: ");
   display.display();
 }
@@ -59,32 +67,18 @@ void do_configure_display(){
 
 void do_status_display(){
   
-  display.drawString(0,0, "enc Pos: ");
+  display.drawString(0,0, "enc: " + String(encoder0Pos) + " T: " + String(toolPos));
   
-  display.drawString(40, 0,  String(encoder0Pos));
+  display.drawString(0,11,"f: " +String(factor) + " D: " + String(delta));
 
-  //display.drawString(0,45,String(isrAt - lastIsrAt));
-  display.drawString(10,45,String(factor));
-
-  display.drawString(0,15,"pend");
-  display.drawString(40,15,String(calculated_stepper_pulses));
-
-  // synced variable fuckied ambigious compiler error and you are too fucking stupid to know how scoping works in this shitbox.
-  /*
-  display.drawString(60,15,(String("D:") + 
-      String(getDir()) + sp + 
-      String(button_left)+ sp + 
-      String(synced))
-      );
-  */
-  display.drawString(0,30,String(delta));
-  display.drawString(40, 30, String(toolPos));
-  if( mode_select == 0){
-    //display.drawString(41,1," lathe "); 
-    }
-  else{
-    //display.drawString(41,1," prog");
+  display.drawString(0,21,"P:" + String(pitch));
+    
+  if(getDir()){
+    display.drawString(100,51,"L");
+  }else{
+    display.drawString(100,51,"R");
   }
+
   display.display();
 }
 
@@ -92,7 +86,7 @@ void do_display(){
 
   if(display_timer.repeat()){
 
-    /*
+    
     clear();
     switch (display_mode) {
       case STARTUP:
@@ -104,8 +98,11 @@ void do_display(){
       case DSTATUS: 
         do_status_display();
         break;
+      case READY:
+        do_ready_display();
+        break;
     }
-    */
+    
   }
   
   if (print_timer.repeat()){

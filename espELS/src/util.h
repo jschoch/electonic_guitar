@@ -3,7 +3,8 @@
 enum display_mode_t {
   STARTUP,
   CONFIGURE,
-  DSTATUS
+  DSTATUS,
+  READY
 } ;
 
 enum feed_mode_t {

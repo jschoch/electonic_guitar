@@ -20,6 +20,6 @@ void init_machine(){
   if(MOTOR_TYPE ==2)
     native_steps = 400;    
     
-  // steps per revolution
+  // motor steps per mm
   motor_steps = (microsteps * native_steps) /lead_screw_pitch;
 }
