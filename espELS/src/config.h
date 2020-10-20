@@ -18,6 +18,7 @@
 #include "motion.h"
 #include "freertos/task.h"
 #include <ESP32Encoder.h>
+#include "web.h"
 
 
 

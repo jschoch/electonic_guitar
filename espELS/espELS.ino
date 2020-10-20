@@ -36,6 +36,8 @@ void setup() {
 
   setFactor();
 
+  init_web();
+
   Serial.println("setup done");
 }
 
@@ -50,7 +52,7 @@ void loop() {
   
   do_display();
   
-
+  do_web();
   //????
   // update factor 
   //if(factor_timer.repeat()){
